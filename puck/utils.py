@@ -1,5 +1,6 @@
 import requests
 import json
+import sys
 
 _SCHEDULE_URL = 'https://statsapi.web.nhl.com/api/v1/schedule'
 
@@ -18,8 +19,33 @@ _TEAMS = {
     "WPG": '52', "ARI": '53', "VGK": '54'
 }
 
+
 def _get_url(url, params=None):
-    with requests.get(url, params) as f:
-        return f.json()
+    '''
+    The base request for querying the NHL api. Attempts to get a JSON of
+    requested information. In the event the request fails, a cached result will
+    be checked. If this fails, a fatal error occurs and ends the program
 
+    TODO: cleaning response data -> will cached result be cleaned or full response?
+    '''
+    try:
+        with requests.get(url, params=params, timeout=5) as f:
+            if f.status_code == requests.codes.ok:
+                return f.json()
+            else:
+                raise requests.exceptions.RequestException
+    except requests.exceptions.RequestException e:
+        cached_result = _get_from_cache(url, params)
+        if cached_result:
+            with open(cached_result, 'r') as cr:
+                return json.load(cr)
+        else:
+            sys.exit('Fatal Error: Unable to load data, try again later.')
 
+def _get_from_cache(url, params)
+    '''
+    Check to see if requested information is in the cache and hasn't gone stale
+    
+    TODO: Dealing with cached results that don't match params
+    '''
+    return None
