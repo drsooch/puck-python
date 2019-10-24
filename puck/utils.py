@@ -1,6 +1,7 @@
 import requests
 import json
 import sys
+import click
 
 _SCHEDULE_URL = 'https://statsapi.web.nhl.com/api/v1/schedule'
 
@@ -28,24 +29,30 @@ def _get_url(url, params=None):
 
     TODO: cleaning response data -> will cached result be cleaned or full response?
     '''
-    try:
-        with requests.get(url, params=params, timeout=5) as f:
-            if f.status_code == requests.codes.ok:
-                return f.json()
-            else:
-                raise requests.exceptions.RequestException
-    except requests.exceptions.RequestException e:
-        cached_result = _get_from_cache(url, params)
-        if cached_result:
-            with open(cached_result, 'r') as cr:
-                return json.load(cr)
+    with requests.get(url, params=params, timeout=5) as f:
+        if f.status_code == requests.codes.ok:
+            return f.json()
         else:
-            sys.exit('Fatal Error: Unable to load data, try again later.')
+            cached_result = _get_from_cache(url, params)
+            if cached_result:
+                return json.load(cached_result)
+            else:
+                sys.exit('Fatal Error: Unable to load data, try again later.')
 
-def _get_from_cache(url, params)
+
+def _get_from_cache(url, params):
     '''
     Check to see if requested information is in the cache and hasn't gone stale
-    
+
     TODO: Dealing with cached results that don't match params
     '''
     return None
+
+
+def style(msg, format):
+    format_type = {
+        'error': {'fg': 'red'},
+        'warning': {'fg': 'yellow'}
+    }
+
+    return click.style(msg, **format_type[format])

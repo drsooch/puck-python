@@ -7,23 +7,23 @@
     "wait": 10,
     "dates": [
         {
-            "date": "2019-10-16",
+            "date": "2019-10-18",
             "totalItems": 6,
             "totalEvents": 0,
             "totalGames": 6,
             "totalMatches": 0,
             "games": [
                 {
-                    "gamePk": 2019020092,
-                    "link": "/api/v1/game/2019020092/feed/live",
+                    "gamePk": 2019020107,
+                    "link": "/api/v1/game/2019020107/feed/live",
                     "gameType": "R",
                     "season": "20192020",
-                    "gameDate": "2019-10-16T23:00:00Z",
+                    "gameDate": "2019-10-18T23:00:00Z",
                     "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
                         "startTimeTBD": false
                     },
                     "teams": {
@@ -34,11 +34,63 @@
                                 "ot": 1,
                                 "type": "league"
                             },
-                            "score": 2,
+                            "score": 0,
                             "team": {
                                 "id": 21,
                                 "name": "Colorado Avalanche",
                                 "link": "/api/v1/teams/21"
+                            }
+                        },
+                        "home": {
+                            "leagueRecord": {
+                                "wins": 2,
+                                "losses": 2,
+                                "ot": 2,
+                                "type": "league"
+                            },
+                            "score": 0,
+                            "team": {
+                                "id": 13,
+                                "name": "Florida Panthers",
+                                "link": "/api/v1/teams/13"
+                            }
+                        }
+                    },
+                    "venue": {
+                        "id": 5027,
+                        "name": "BB&T Center",
+                        "link": "/api/v1/venues/5027"
+                    },
+                    "content": {
+                        "link": "/api/v1/game/2019020107/content"
+                    }
+                },
+                {
+                    "gamePk": 2019020108,
+                    "link": "/api/v1/game/2019020108/feed/live",
+                    "gameType": "R",
+                    "season": "20192020",
+                    "gameDate": "2019-10-18T23:00:00Z",
+                    "status": {
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
+                        "startTimeTBD": false
+                    },
+                    "teams": {
+                        "away": {
+                            "leagueRecord": {
+                                "wins": 1,
+                                "losses": 6,
+                                "ot": 1,
+                                "type": "league"
+                            },
+                            "score": 0,
+                            "team": {
+                                "id": 25,
+                                "name": "Dallas Stars",
+                                "link": "/api/v1/teams/25"
                             }
                         },
                         "home": {
@@ -48,7 +100,7 @@
                                 "ot": 0,
                                 "type": "league"
                             },
-                            "score": 3,
+                            "score": 0,
                             "team": {
                                 "id": 5,
                                 "name": "Pittsburgh Penguins",
@@ -62,35 +114,35 @@
                         "link": "/api/v1/venues/5034"
                     },
                     "content": {
-                        "link": "/api/v1/game/2019020092/content"
+                        "link": "/api/v1/game/2019020108/content"
                     }
                 },
                 {
-                    "gamePk": 2019020093,
-                    "link": "/api/v1/game/2019020093/feed/live",
+                    "gamePk": 2019020109,
+                    "link": "/api/v1/game/2019020109/feed/live",
                     "gameType": "R",
                     "season": "20192020",
-                    "gameDate": "2019-10-16T23:00:00Z",
+                    "gameDate": "2019-10-18T23:00:00Z",
                     "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
                         "startTimeTBD": false
                     },
                     "teams": {
                         "away": {
                             "leagueRecord": {
-                                "wins": 4,
-                                "losses": 3,
-                                "ot": 1,
+                                "wins": 2,
+                                "losses": 2,
+                                "ot": 0,
                                 "type": "league"
                             },
-                            "score": 3,
+                            "score": 0,
                             "team": {
-                                "id": 10,
-                                "name": "Toronto Maple Leafs",
-                                "link": "/api/v1/teams/10"
+                                "id": 3,
+                                "name": "New York Rangers",
+                                "link": "/api/v1/teams/3"
                             }
                         },
                         "home": {
@@ -100,7 +152,7 @@
                                 "ot": 2,
                                 "type": "league"
                             },
-                            "score": 4,
+                            "score": 0,
                             "team": {
                                 "id": 15,
                                 "name": "Washington Capitals",
@@ -114,87 +166,87 @@
                         "link": "/api/v1/venues/5094"
                     },
                     "content": {
-                        "link": "/api/v1/game/2019020093/content"
+                        "link": "/api/v1/game/2019020109/content"
                     }
                 },
                 {
-                    "gamePk": 2019020094,
-                    "link": "/api/v1/game/2019020094/feed/live",
+                    "gamePk": 2019020110,
+                    "link": "/api/v1/game/2019020110/feed/live",
                     "gameType": "R",
                     "season": "20192020",
-                    "gameDate": "2019-10-16T23:00:00Z",
+                    "gameDate": "2019-10-19T00:30:00Z",
                     "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
                         "startTimeTBD": false
                     },
                     "teams": {
                         "away": {
-                            "leagueRecord": {
-                                "wins": 1,
-                                "losses": 6,
-                                "ot": 1,
-                                "type": "league"
-                            },
-                            "score": 2,
-                            "team": {
-                                "id": 25,
-                                "name": "Dallas Stars",
-                                "link": "/api/v1/teams/25"
-                            }
-                        },
-                        "home": {
                             "leagueRecord": {
                                 "wins": 3,
                                 "losses": 3,
                                 "ot": 0,
                                 "type": "league"
                             },
-                            "score": 3,
+                            "score": 0,
                             "team": {
                                 "id": 29,
                                 "name": "Columbus Blue Jackets",
                                 "link": "/api/v1/teams/29"
                             }
+                        },
+                        "home": {
+                            "leagueRecord": {
+                                "wins": 1,
+                                "losses": 2,
+                                "ot": 1,
+                                "type": "league"
+                            },
+                            "score": 0,
+                            "team": {
+                                "id": 16,
+                                "name": "Chicago Blackhawks",
+                                "link": "/api/v1/teams/16"
+                            }
                         }
                     },
                     "venue": {
-                        "id": 5059,
-                        "name": "Nationwide Arena",
-                        "link": "/api/v1/venues/5059"
+                        "id": 5092,
+                        "name": "United Center",
+                        "link": "/api/v1/venues/5092"
                     },
                     "content": {
-                        "link": "/api/v1/game/2019020094/content"
+                        "link": "/api/v1/game/2019020110/content"
                     }
                 },
                 {
-                    "gamePk": 2019020095,
-                    "link": "/api/v1/game/2019020095/feed/live",
+                    "gamePk": 2019020111,
+                    "link": "/api/v1/game/2019020111/feed/live",
                     "gameType": "R",
                     "season": "20192020",
-                    "gameDate": "2019-10-17T01:30:00Z",
+                    "gameDate": "2019-10-19T01:00:00Z",
                     "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
                         "startTimeTBD": false
                     },
                     "teams": {
                         "away": {
                             "leagueRecord": {
-                                "wins": 2,
-                                "losses": 2,
-                                "ot": 1,
+                                "wins": 3,
+                                "losses": 4,
+                                "ot": 0,
                                 "type": "league"
                             },
-                            "score": 3,
+                            "score": 0,
                             "team": {
-                                "id": 4,
-                                "name": "Philadelphia Flyers",
-                                "link": "/api/v1/teams/4"
+                                "id": 17,
+                                "name": "Detroit Red Wings",
+                                "link": "/api/v1/teams/17"
                             }
                         },
                         "home": {
@@ -204,7 +256,7 @@
                                 "ot": 0,
                                 "type": "league"
                             },
-                            "score": 6,
+                            "score": 0,
                             "team": {
                                 "id": 22,
                                 "name": "Edmonton Oilers",
@@ -218,35 +270,35 @@
                         "link": "/api/v1/venues/5100"
                     },
                     "content": {
-                        "link": "/api/v1/game/2019020095/content"
+                        "link": "/api/v1/game/2019020111/content"
                     }
                 },
                 {
-                    "gamePk": 2019020096,
-                    "link": "/api/v1/game/2019020096/feed/live",
+                    "gamePk": 2019020112,
+                    "link": "/api/v1/game/2019020112/feed/live",
                     "gameType": "R",
                     "season": "20192020",
-                    "gameDate": "2019-10-17T02:00:00Z",
+                    "gameDate": "2019-10-19T02:00:00Z",
                     "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
+                        "abstractGameState": "Preview",
+                        "codedGameState": "1",
+                        "detailedState": "Scheduled",
+                        "statusCode": "1",
                         "startTimeTBD": false
                     },
                     "teams": {
                         "away": {
                             "leagueRecord": {
-                                "wins": 5,
-                                "losses": 1,
-                                "ot": 1,
+                                "wins": 6,
+                                "losses": 2,
+                                "ot": 0,
                                 "type": "league"
                             },
-                            "score": 2,
+                            "score": 0,
                             "team": {
-                                "id": 7,
-                                "name": "Buffalo Sabres",
-                                "link": "/api/v1/teams/7"
+                                "id": 12,
+                                "name": "Carolina Hurricanes",
+                                "link": "/api/v1/teams/12"
                             }
                         },
                         "home": {
@@ -256,7 +308,7 @@
                                 "ot": 0,
                                 "type": "league"
                             },
-                            "score": 5,
+                            "score": 0,
                             "team": {
                                 "id": 24,
                                 "name": "Anaheim Ducks",
@@ -270,58 +322,7 @@
                         "link": "/api/v1/venues/5046"
                     },
                     "content": {
-                        "link": "/api/v1/game/2019020096/content"
-                    }
-                },
-                {
-                    "gamePk": 2019020097,
-                    "link": "/api/v1/game/2019020097/feed/live",
-                    "gameType": "R",
-                    "season": "20192020",
-                    "gameDate": "2019-10-17T02:30:00Z",
-                    "status": {
-                        "abstractGameState": "Final",
-                        "codedGameState": "7",
-                        "detailedState": "Final",
-                        "statusCode": "7",
-                        "startTimeTBD": false
-                    },
-                    "teams": {
-                        "away": {
-                            "leagueRecord": {
-                                "wins": 6,
-                                "losses": 2,
-                                "ot": 0,
-                                "type": "league"
-                            },
-                            "score": 2,
-                            "team": {
-                                "id": 12,
-                                "name": "Carolina Hurricanes",
-                                "link": "/api/v1/teams/12"
-                            }
-                        },
-                        "home": {
-                            "leagueRecord": {
-                                "wins": 3,
-                                "losses": 4,
-                                "ot": 0,
-                                "type": "league"
-                            },
-                            "score": 5,
-                            "team": {
-                                "id": 28,
-                                "name": "San Jose Sharks",
-                                "link": "/api/v1/teams/28"
-                            }
-                        }
-                    },
-                    "venue": {
-                        "name": "SAP Center at San Jose",
-                        "link": "/api/v1/venues/null"
-                    },
-                    "content": {
-                        "link": "/api/v1/game/2019020097/content"
+                        "link": "/api/v1/game/2019020112/content"
                     }
                 }
             ],
