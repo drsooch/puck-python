@@ -2,8 +2,10 @@ import datetime
 import re
 
 import click
+import arrow
 
 from puck.utils import style
+from puck.games import games_handler
 
 
 class Config(object):
@@ -70,8 +72,10 @@ class ISODateType(click.ParamType):
         # simply attempt to create a datetime object with the input
         # if it fails, return false
         try:
-            datetime.datetime.strptime(value, '%Y-%m-%d')
+            arrow.get(value, 'YYYY-M-D')
         except ValueError as e:
+            return False
+        except arrow.parser.ParserMatchError as e:
             return False
 
         return True
@@ -90,10 +94,11 @@ File = click.File()
 )
 @click.pass_context
 def cli(ctx, verbose, output_file):
-    ctx.obj = Config(verbose)
+    ctx.obj = Config(verbose, output_file)
 
 
 @cli.command()
+@click.argument('team', default=None, required=False)
 @click.option(
     '-t', '--today', is_flag=True,
     help='Query Today\'s games (Local Time)', cls=MutuallyExclusiveOption,
@@ -120,8 +125,9 @@ def cli(ctx, verbose, output_file):
     mutually_exclusive=['today', 'yesterday', 'tomorrow', 'date']
 )
 @click.pass_context
-def games(ctx, today, yesterday, tomorrow, date, date_range):
-    print(ctx, today, yesterday, tomorrow, date, date_range)
+def games(ctx, team, today, yesterday, tomorrow, date, date_range):
+    cmd_vals = {k: v for k, v in ctx.params.items() if v}
+    games_handler(ctx.obj, cmd_vals)
 
 
 if __name__ == "__main__":
