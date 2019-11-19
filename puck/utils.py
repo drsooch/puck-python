@@ -1,11 +1,16 @@
 import json
-import sys
 
 import arrow
 import click
 import requests
 
 from puck.urls import Url
+import sys
+
+
+class TeamException(Exception):
+    pass
+
 
 GAME_A_STATUS = {
     'Preview': [1, 2],
@@ -46,28 +51,36 @@ _TEAM_LN_MAP = {
 
 
 def get_url(url, url_mods=None, params=None):
-    '''
+    """
     The base request for querying the NHL api. Attempts to get a JSON of
     requested information. In the event the request fails, a cached result will
     be checked. If this fails, a fatal error occurs and ends the program
 
-    url should be a Url Enum
+    Args:
+        url (Url): The url to query (from puck.Url)
+
+    Kwargs:
+        url_mods (dict): Any modifications for the base Url
+        params (dict): Any parameters to pass to the Url
+
+    Returns:
+        json
 
     TODO: Cache check? - currently have a cache function that does nothing
     TODO: Change the parameters to accept "appended" search terms - i.e. _SCHEDULE_URL + 'append'
     TODO: Better Error checking than '200 OK'
-    '''
+    """
 
     if url_mods:
-        url = _generate_url(url.value, url_mods)
+        _url = _generate_url(url.value, url_mods)
     else:
-        url = url.value
+        _url = url.value
 
-    with requests.get(url, params=params, timeout=5) as f:
+    with requests.get(_url, params=params, timeout=5) as f:
         if f.status_code == requests.codes.ok:
             return f.json()
         else:
-            cached_result = _get_from_cache(url, params)
+            cached_result = _get_from_cache(_url, params)
             if cached_result:
                 return json.load(cached_result)
             else:
@@ -75,23 +88,75 @@ def get_url(url, url_mods=None, params=None):
 
 
 def _generate_url(url, url_mods):
+    if Url.GAME.value == url:
+        url = url.format(url_mods['game_id'])
 
-    pass
+    return url
 
 
 def _get_from_cache(url, params):
-    '''
+    """
     Check to see if requested information is in the cache and hasn't gone stale
 
     TODO: Dealing with cached results that don't match params
-    '''
+    """
     return None
+
+
+def team_to_id(team):
+    """
+    Return a teams ID number. Accepts both Long Name and Abbreviation.
+
+    Args:
+        team (str): Either Long Name or Abbreviation
+
+    Returns:
+        int: ID number
+
+    Raises:
+        TeamException
+    """
+
+    # means its probably in long form
+    if len(team) != 3:
+        try:
+            team = shorten_tname(team)
+        except TeamException as e:
+            # Do I even need this or will it propogate?
+            raise TeamException
+
+    try:
+        return _TEAM_ID_MAP[team]
+    except KeyError as e:
+        raise TeamException
+
+
+def shorten_tname(team):
+    """
+    Returns 3-Letter Team Abbreviation.
+
+    Args:
+        team (str): Full Team Name
+
+    Returns:
+        str: 3-Letter Team Abb.
+
+    Raises:
+        TeamException
+    """
+    try:
+        return _TEAM_LN_MAP[team]
+    except KeyError as e:
+        raise TeamException
 
 
 def style(msg, format):
     format_type = {
         'error': {'fg': 'red'},
-        'warning': {'fg': 'yellow'}
+        'warning': {'fg': 'yellow'},
+        'winner': {'fg': 'green'},
+        'general': {'fg': 'white'},
+        'title': {'fg': 'white', 'underline': True}
     }
 
     return click.style(msg, **format_type[format])

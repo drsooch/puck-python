@@ -1,6 +1,3 @@
-import datetime
-import re
-
 import click
 import arrow
 
@@ -9,9 +6,9 @@ from puck.games import games_handler
 
 
 class Config(object):
-    '''
+    """
     Holds all top level options
-    '''
+    """
 
     def __init__(self, verbose=False, output_file=None):
         self.verbose = verbose
@@ -19,7 +16,7 @@ class Config(object):
 
 
 class MutuallyExclusiveOption(click.Option):
-    '''
+    """
     This class is used to make options mutually exclusive.
 
     Thanks to this Stack Overflow Answer:
@@ -27,7 +24,7 @@ class MutuallyExclusiveOption(click.Option):
 
     Additional thanks to the Watson CLI program for help in adding the _exclusive_error function
     https://github.com/TailorDev/Watson/blob/master/watson/cli.py 
-    '''
+    """
 
     def __init__(self, *args, **kwargs):
         self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
@@ -52,10 +49,10 @@ class MutuallyExclusiveOption(click.Option):
 
 
 class ISODateType(click.ParamType):
-    '''
+    """
     ISODate type is YYYY-MM-DD format mainly used in the games command.
     NOTE: only need Year in YYYY format. MM and DD can pass without leading zeroes.
-    '''
+    """
     name = 'date'
 
     def convert(self, value, param, ctx):
@@ -69,7 +66,7 @@ class ISODateType(click.ParamType):
         raise click.ClickException(style(errmsg, 'error'))
 
     def _is_valid_input(self, value):
-        # simply attempt to create a datetime object with the input
+        # simply attempt to create an arrow object with the input
         # if it fails, return false
         try:
             arrow.get(value, 'YYYY-M-D')
@@ -98,7 +95,9 @@ def cli(ctx, verbose, output_file):
 
 
 @cli.command()
-@click.argument('team', default=None, required=False)
+@click.argument(
+    'team', default=None, required=False,
+)
 @click.option(
     '-t', '--today', is_flag=True,
     help='Query Today\'s games (Local Time)', cls=MutuallyExclusiveOption,
@@ -126,6 +125,8 @@ def cli(ctx, verbose, output_file):
 )
 @click.pass_context
 def games(ctx, team, today, yesterday, tomorrow, date, date_range):
+    """Queries the NHL schedule. To query for a specific team
+     use 3-Letter abberviation TEAM."""
     cmd_vals = {k: v for k, v in ctx.params.items() if v}
     games_handler(ctx.obj, cmd_vals)
 

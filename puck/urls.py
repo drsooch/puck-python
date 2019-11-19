@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class Url(Enum):
-    '''
+    """
     Master List of all possible query targets.
-    '''
+    """
 
     TEAMS = 'https://statsapi.web.nhl.com/api/v1/teams/{}'
     SCHEDULE = 'https://statsapi.web.nhl.com/api/v1/schedule'
@@ -17,10 +17,13 @@ class Url(Enum):
 
     @staticmethod
     def appendable():
-        '''
+        """
         Returns list of Urls that can/require the insertion of IDs or other
         extensions to the url.
-        '''
+
+        Returns:
+            List of Urls
+        """
 
         return [
             Url.TEAMS, Url.TEAM_STATS, Url.RECORDS,
