@@ -3,10 +3,13 @@ autopep8==1.4.4
 certifi==2019.9.11
 chardet==3.0.4
 Click==7.0
+colorama==0.4.1
 idna==2.8
+npyscreen==4.10.5
 pkg-resources==0.0.0
 pycodestyle==2.5.0
 python-dateutil==2.8.1
 requests==2.22.0
 six==1.13.0
 urllib3==1.25.6
+wcwidth==0.1.7

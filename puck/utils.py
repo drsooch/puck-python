@@ -154,9 +154,6 @@ def style(msg, format):
     format_type = {
         'error': {'fg': 'red'},
         'warning': {'fg': 'yellow'},
-        'winner': {'fg': 'green'},
-        'general': {'fg': 'white'},
-        'title': {'fg': 'white', 'underline': True}
     }
 
     return click.style(msg, **format_type[format])

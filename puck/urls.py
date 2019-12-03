@@ -13,7 +13,7 @@ class Url(Enum):
     GAME = 'https://statsapi.web.nhl.com/api/v1/game/{}/feed/live'
     STANDINGS = 'https://statsapi.web.nhl.com/api/v1/standings'
     PLAYERS = 'https://statsapi.web.nhl.com/api/v1/people/{}'
-    PLAYER_STATS = 'https://statsapi.web.nhl.com/api/v1/people/{}/stats'
+    PLAYER_STATS = 'https://statsapi.web.nhl.com/api/v1/people/{}/stats'        
 
     @staticmethod
     def appendable():

@@ -63,16 +63,7 @@ class BaseGame(object):
             return None
 
     def __repr__(self):
-        _away = f'{shorten_tname(self.away_team)}: {self.away_score} '
-        _home = f' {shorten_tname(self.home_team)}: {self.home_score}'
-
-        _away = style(_away, 'winner')
-        if self.live:
-            _time = f'{self.time} - {self.period}'
-        else:
-            _time = f'{self.start_time}'
-
-        return ('{: ^8} | {: ^18} | {: ^8}').format(_away, _time, _home)
+        return f'{self.__class__} -> {self.__dict__}'
 
 
 class VerboseGame(BaseGame):
@@ -251,10 +242,9 @@ def build_games_list(_json, verbose=False):
 def build_norm_output(g_list):
     gen_format = '{:^10} | {:^15} | {:^10}'
 
-    title = gen_format.format(
-        style('Away ', 'title'), 'Period', style('Home', 'title')
-    )
+    title = gen_format.format('Away ', 'Period', 'Home')
     click.echo(title)
+
     for g in g_list:
         _away = shorten_tname(g.away_team) + ' ' + str(g.away_score)
         _home = shorten_tname(g.home_team) + ' ' + str(g.home_score)
@@ -264,19 +254,6 @@ def build_norm_output(g_list):
         else:
             _time = g.start_time
 
-        if g.leading_team() is not None:
-            if g.leading_team() == g.away_team:
-                output = gen_format.format(
-                    style(_away, 'winner'), _time, style(_home, 'general')
-                )
-            else:
-                output = gen_format.format(
-                    style(_away, 'general'), _time, style(_home, 'winner')
-                )
-        else:
-            output = gen_format.format(
-                style(_away, 'general'),
-                _time, style(_home, 'general')
-            )
+        output = gen_format.format(_away, _time, _home)
 
         click.echo(output)

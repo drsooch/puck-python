@@ -1,4 +1,4 @@
-from puck.cli import Puck
+from puck.puck.tui.MainTui import PuckApp
 
-if __name__ == "__main__":
-    Puck()
+PuckApp().run()
+
