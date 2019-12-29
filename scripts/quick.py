@@ -1,11 +1,6 @@
-import puck.utils as pu
-import json
+from puck.Games import BannerGame, FullGame, get_game_ids
+from puck.Teams import GameStatsTeam
 
+ids = get_game_ids({'endDate': '2019-12-30'})
 
-with open('./teams.json', 'w') as f:
-    r = pu._get_url('stats')
-    final = dict()
-    for team in r['teams']:
-        final.setdefault(team['name'], team['abbreviation'])
-    json.dump(final, f)
-
+GameStatsTeam('hi', 1234, 1234, 'hom', 12)

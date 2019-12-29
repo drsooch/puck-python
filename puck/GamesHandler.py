@@ -1,74 +1,9 @@
 import arrow
 import click
 
+from puck.Games import BannerGame, VerboseGame
 from puck.urls import Url
-from puck.utils import get_url, GAME_A_STATUS, shorten_tname, team_to_id, style
-
-
-class GameIDException(Exception):
-    pass
-
-
-class BaseGame(object):
-    """
-    The generic Game Class. This class holds basic data about each game.
-    Creation will fail if the gamePk (ie the game ID) doesnt exist.
-
-
-    """
-
-    def __init__(self, game_id, home_team, away_team, home_score, away_score, game_status, start_time):
-        self.game_id = game_id
-        self.home_team = home_team
-        self.away_team = away_team
-        self.home_score = home_score
-        self.away_score = away_score
-        self.game_status = game_status
-        self.start_time = start_time
-
-        if self.game_status in GAME_A_STATUS['Preview']:
-            self.period = None
-            self.time = None
-            self.in_intermission = False
-            self.live = False
-        else:
-            _url_mods = {
-                'game_id': self.game_id
-            }
-
-            resp = get_url(Url.GAME, url_mods=_url_mods, params=None)
-
-            self.live = True
-            self.period = resp['liveData']['linescore']['currentPeriodOrdinal']
-            self.time = resp['liveData']['linescore']['currentPeriodTimeRemaining']
-            self.in_intermission = resp['liveData']['linescore']['intermissionInfo']['inIntermission']
-
-        if self.game_status in GAME_A_STATUS['Final']:
-            self.is_final = True
-        else:
-            self.is_final = False
-
-    def is_live(self):
-        return self.live
-
-    def is_finished(self):
-        return self.is_final
-
-    def leading_team(self):
-        if self.home_score > self.away_score:
-            return self.home_team
-        elif self.away_score > self.home_score:
-            return self.away_team
-        else:
-            return None
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
-
-
-class VerboseGame(BaseGame):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+from puck.utils import request, shorten_tname, team_to_id
 
 
 def games_handler(conf, cmd_vals):
@@ -105,7 +40,8 @@ def games_handler(conf, cmd_vals):
         team_id = team_to_id(cmd_vals.pop('team'))
         cmd_vals.update({'teamId': team_id})
 
-    games_query(conf, params=cmd_vals)
+    games = games_query(conf, params=cmd_vals)
+    normal_games_echo(games)
 
 
 def _yesterday(cmd_vals):
@@ -185,26 +121,25 @@ def _today(cmd_vals):
 
 
 def games_query(conf, url_mods=None, params=None):
-    resp = get_url(Url.SCHEDULE, url_mods=None, params=params)
+    resp = request(Url.SCHEDULE, url_mods=None, params=params)
+    games = [x for x in resp['dates'][0]['games']]
 
-    normal_games_echo(resp)
+    return games
 
 
-def verbose_games_echo(_json):
-    g_list = [x for x in _json['dates'][0]['games']]
+def verbose_games_echo(games):
     pass
 
 
-def normal_games_echo(_json):
-    games_list = build_games_list(_json, verbose=False)
+def normal_games_echo(games):
+    games_list = build_games_list(games, verbose=False)
     output = build_norm_output(games_list)
 
 
-def build_games_list(_json, verbose=False):
+def build_games_list(games, verbose=False):
     """
-    Build a list of 
+    Build a list of games from game ids gathered
     """
-    games = [x for x in _json['dates'][0]['games']]
     games_list = []
 
     for game in games:
@@ -219,8 +154,14 @@ def build_games_list(_json, verbose=False):
         # maybe use get method?
         init_args = {
             'game_id': game_id,
-            'home_team': game['teams']['home']['team']['name'],
-            'away_team': game['teams']['away']['team']['name'],
+            'home_team': {
+                'full': game['teams']['home']['team']['name'],
+                'short': shorten_tname(game['teams']['home']['team']['name'])
+            },
+            'away_team': {
+                'full': game['teams']['away']['team']['name'],
+                'short': shorten_tname(game['teams']['away']['team']['name'])
+            },
             'home_score': game['teams']['home']['score'],
             'away_score': game['teams']['away']['score'],
 
@@ -234,7 +175,7 @@ def build_games_list(_json, verbose=False):
         if verbose:
             games_list.append(VerboseGame(**init_args))
         else:
-            games_list.append(BaseGame(**init_args))
+            games_list.append(BannerGame(**init_args))
 
     return games_list
 

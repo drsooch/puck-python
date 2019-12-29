@@ -1,4 +1,4 @@
-from puck.puck.tui.MainTui import PuckApp
+from puck.puck.tui.app import PuckApp
 
-PuckApp().run()
-
+app = PuckApp()
+app.run()

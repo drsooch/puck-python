@@ -2,7 +2,7 @@ import click
 import arrow
 
 from puck.utils import style
-from puck.games import games_handler
+from puck.GamesHandler import games_handler
 
 
 class Config(object):
@@ -126,7 +126,10 @@ def cli(ctx, verbose, output_file):
 @click.pass_context
 def games(ctx, team, today, yesterday, tomorrow, date, date_range):
     """Queries the NHL schedule. To query for a specific team
-     use 3-Letter abberviation TEAM."""
+     use 3-Letter abberviation TEAM.
+
+     TODO: Possible "Finished" game option
+     """
     cmd_vals = {k: v for k, v in ctx.params.items() if v}
     games_handler(ctx.obj, cmd_vals)
 

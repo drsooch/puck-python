@@ -1,2 +1,3 @@
 # Puck
-Puck the NHL CLI
+Puck the NHL CLI and TUI.
+
