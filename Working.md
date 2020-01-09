@@ -12,6 +12,7 @@ Outline of what needs to be done for a stable Puck
   - [ ] Documentation
 - **GamesHandler.py**
   - [ ] Reimplement functions with new API (from Teams and Games)
+  - [ ] Fix the games_query() function (does the same thing as Games.get_game_id())
   - [ ] Documentation
 - **Utils.py**
   - [ ] Rework request to properly handle HTTP status codes and raise proper errors.

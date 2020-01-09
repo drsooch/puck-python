@@ -1,12 +1,12 @@
 import arrow
 import click
 
-from puck.Games import BannerGame, VerboseGame
+from puck.Games import BannerGame, FullGame, get_game_ids
 from puck.urls import Url
 from puck.utils import request, shorten_tname, team_to_id
 
 
-def games_handler(conf, cmd_vals):
+def games_handler(config, cmd_vals):
     """
     Handles all of "puck games [option]" adding url parameters if needed
 
@@ -14,7 +14,7 @@ def games_handler(conf, cmd_vals):
     url parameter and could possibly alter state.
 
     Arguments:
-        conf (Config): the Config object
+        config (Config): the Config object
         cmd_vals (dict): Args and Options passed through the command line
 
     Returns:
@@ -40,8 +40,10 @@ def games_handler(conf, cmd_vals):
         team_id = team_to_id(cmd_vals.pop('team'))
         cmd_vals.update({'teamId': team_id})
 
-    games = games_query(conf, params=cmd_vals)
-    normal_games_echo(games)
+    if config.verbose:
+        verbose_games_echo()
+    else:
+        normal_games_echo(cmd_vals)
 
 
 def _yesterday(cmd_vals):
@@ -120,20 +122,17 @@ def _today(cmd_vals):
     cmd_vals.update({'date': _date})
 
 
-def games_query(conf, url_mods=None, params=None):
-    resp = request(Url.SCHEDULE, url_mods=None, params=params)
-    games = [x for x in resp['dates'][0]['games']]
-
-    return games
-
-
 def verbose_games_echo(games):
     pass
 
 
-def normal_games_echo(games):
-    games_list = build_games_list(games, verbose=False)
-    output = build_norm_output(games_list)
+def normal_games_echo(params=None):
+    game_ids = get_game_ids(params=params)
+    games_list = []
+    for game in game_ids:
+        games_list.append(BannerGame(game))
+
+    build_norm_output(games_list)
 
 
 def build_games_list(games, verbose=False):
@@ -187,10 +186,10 @@ def build_norm_output(g_list):
     click.echo(title)
 
     for g in g_list:
-        _away = shorten_tname(g.away_team) + ' ' + str(g.away_score)
-        _home = shorten_tname(g.home_team) + ' ' + str(g.home_score)
+        _away = g.away.abbreviation + ' ' + str(g.away.goals)
+        _home = g.home.abbreviation + ' ' + str(g.home.goals)
 
-        if g.is_live() or g.is_finished():
+        if g.is_live or g.is_final:
             _time = g.time + ' - ' + g.period
         else:
             _time = g.start_time

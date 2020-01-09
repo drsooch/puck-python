@@ -5,7 +5,7 @@ import arrow
 import click
 import requests
 
-from puck.urls import Url, URLException
+from .urls import Url, URLException
 
 
 class TeamException(Exception):
@@ -81,6 +81,44 @@ def request(url, url_mods=None, params=None):
         json
 
     TODO: Cache check? - currently have a cache function that does nothing
+    TODO: Better Error checking than '200 OK'
+    """
+
+    if url_mods:
+        _url = _generate_url(url.value, url_mods)
+    else:
+        _url = url.value
+    try:
+        with requests.get(_url, params=params, timeout=5) as f:
+            if f.status_code == requests.codes.ok:
+                return f.json()
+            else:
+                cached_result = _get_from_cache(_url, params)
+                if cached_result:
+                    return json.load(cached_result)
+                else:
+                    sys.exit('Fatal Error: Unable to load data, try again later.')
+    except:
+        # raise generic exception for a poor URL
+        raise URLException
+
+
+async def request_a(url, url_mods=None, params=None):
+    """
+    The async version of the base request for querying the NHL api. Attempts to 
+    get a JSON of requested information. In the event the request fails, a cached 
+    result will be checked. If this fails, a fatal error occurs and ends the program
+
+    Args:
+        url (Url): The url to query (from puck.Url)
+
+    Kwargs:
+        url_mods (dict): Any modifications for the base Url
+        params (dict): Any parameters to pass to the Url
+
+    Returns:
+        json
+
     TODO: Better Error checking than '200 OK'
     """
 

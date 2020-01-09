@@ -1,6 +1,5 @@
 from puck.urls import Url
 from puck.utils import GAME_STATUS, request
-from puck.Games import GameIDException
 
 
 class TeamIDException(Exception):
@@ -29,7 +28,6 @@ class BaseTeam(object):
     Raises:
         TeamIDException: Creation fails when an invalid team ID is passed
     """
-    # no use for mods yet...
 
     def __init__(self, team_id, **mods):
         """Constructor for BaseTeam. 
@@ -69,14 +67,14 @@ class BannerTeam(BaseTeam):
         creation will fail.
     """
 
-    def __init__(self, game, game_id, team_type, game_stats=None):
+    def __init__(self, game, game_id, team_type, game_info=None):
         """Constructor for BannerTeam
 
         Args:
             game (BannerGame): Any game that inherits BannerGame
             game_id (int): API Game ID
             team_type (str): Either "home" or "away"
-            game_stats (dict, optional): JSON API response represented as dictionary.
+            game_info (dict, optional): JSON API response represented as dictionary.
                 Defaults to None.
 
         Raises:
@@ -92,11 +90,11 @@ class BannerTeam(BaseTeam):
             raise InvalidTeamType
 
         # check if game data was passed
-        if not game_stats:
-            game_stats = request(Url.GAME, url_mods={'game_id': game_id})
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
         # get the teams id number
-        team_id = game_stats['gameData']['teams'][team_type]['id']
+        team_id = game_info['gameData']['teams'][team_type]['id']
 
         # call parent class constructor
         super().__init__(team_id=team_id)
@@ -105,16 +103,16 @@ class BannerTeam(BaseTeam):
         self.game_id = game_id
 
         # the only data we need to track.
-        self.goals = game_stats['liveData']['linescore']['teams'][team_type]['goals']
+        self.goals = game_info['liveData']['linescore']['teams'][team_type]['goals']
 
-    def update(self, game_stats=None):
-        if not game_stats:
-            game_stats = request(Url.GAME, url_mods={'game_id': game_id})
+    def update(self, game_info=None):
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.goals = game_stats['liveData']['linescore']['teams'][self.team_type]['goals']
+        self.goals = game_info['liveData']['linescore']['teams'][self.team_type]['goals']
 
 
-class GameStatsTeam(BaseTeam):
+class FullStatsTeam(BaseTeam):
     """    
     This class is designed for use in conjuction with a FullGame object.
     Built upon the BaseTeam class, this class gathers stats relevant to
@@ -133,14 +131,14 @@ class GameStatsTeam(BaseTeam):
         creation will fail.
     """
 
-    def __init__(self, game, game_id, team_type, game_stats=None):
+    def __init__(self, game, game_id, team_type, game_info=None):
         """Constructor for GameStatsTeam
 
         Args:
             game (BannerGame or FullGame): The Container object. Any object that inherits BannerGame
             game_id (int): API Game ID
             team_type (str): Either 'home' or 'away'
-            game_stats (dict, optional): JSON API response represented as dictionary
+            game_info (dict, optional): JSON API response represented as dictionary
 
         Raises:
             InvalidTeamType: If 'home' or 'away' is not supplied
@@ -155,12 +153,12 @@ class GameStatsTeam(BaseTeam):
             raise InvalidTeamType
 
         # if the game data was passed to the constructor use that
-        if not game_stats:
+        if not game_info:
             # request the game data
-            game_stats = request(Url.GAME, url_mods={'game_id': game_id})
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
         # get the teams id number
-        team_id = game_stats['gameData']['teams'][team_type]['id']
+        team_id = game_info['gameData']['teams'][team_type]['id']
 
         # Call the parent class constructor
         super().__init__(team_id=team_id)
@@ -170,36 +168,36 @@ class GameStatsTeam(BaseTeam):
         self.game_id = game_id
 
         # invoke internal setter method
-        self._set(game_stats)
+        self._set(game_info)
 
         # PeriodStats object for easier referencing
         self.periods = PeriodStats(
-            game_stats['liveData']['linescore']['periods'], team_type
+            game_info['liveData']['linescore']['periods'], team_type
         )
 
         # ShootOutStats object for easier referencing
-        if game_stats['liveData']['linescore']['hasShootout']:
+        if game_info['liveData']['linescore']['hasShootout']:
             self.shootout = ShootoutStats(
-                goals=game_stats['liveData']['linescore']['shootoutInfo'][team_type]['scores'],
-                attempts=game_stats['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
+                goals=game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores'],
+                attempts=game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
             )
         else:
             self.shootout = ShootoutStats()
 
         self.player_stats = None  # TODO: player stats.
 
-    def update(self, game_stats=None):
+    def update(self, game_info=None):
         """Updates an object using fresh data. 
 
         Args:
-            game_stats (dict, optional): JSON API response represented as dictionary. Defaults to None.
+            game_info (dict, optional): JSON API response represented as dictionary. Defaults to None.
         """
 
         # if no json is passed.
-        if not game_stats:
-            game_stats = request(Url.GAME, url_mods={'game_id': game_id})
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        _status_code = int(game_stats['gameData']['status']['statusCode'])
+        _status_code = int(game_info['gameData']['status']['statusCode'])
 
         # NOTE: This check could fail if the game status code is updated before this.
         if _status_code in GAME_STATUS['Preview'] and self._game.game_status in GAME_STATUS['Preview']:
@@ -208,21 +206,21 @@ class GameStatsTeam(BaseTeam):
             return
 
         # invoke internal set methods
-        self._set(game_stats)
-        self.periods._set(
-            game_stats['liveData']['linescore']['periods'],
+        self._set(game_info)
+        self.periods.update(
+            game_info['liveData']['linescore']['periods'],
             self.team_type
         )
 
-        if game_stats['liveData']['linescore']['hasShootout']:
-            self.shootout.goals = game_stats['liveData']['linescore']['shootoutInfo'][team_type]['scores']
-            self.shootout.attempts = game_stats['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
+        if game_info['liveData']['linescore']['hasShootout']:
+            self.shootout.goals = game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores']
+            self.shootout.attempts = game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
 
-    def _set(self, game_stats):
+    def _set(self, game_info):
         """Internal Use Only. The main code for setting/updating values"""
         # shortened JSON paths
-        live_data = game_stats['liveData']
-        team_stats = game_stats['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']
+        live_data = game_info['liveData']
+        team_stats = game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']
 
         # could just use team_data['teamStats']['teamSkaterStats']
         # but choosing to make each an attribute
@@ -273,6 +271,10 @@ class PeriodStats(object):
         self.third = Period()
         self.ot = Period()
 
+        self._set(periods, team_type)
+
+    # for ease of reference
+    def update(self, periods, team_type):
         self._set(periods, team_type)
 
     def _set(self, periods, team_type):

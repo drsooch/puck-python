@@ -2,12 +2,29 @@ import arrow
 
 from puck.urls import Url
 from puck.utils import GAME_STATUS, request
-from puck.Teams import GameStatsTeam
+from puck.Teams import FullStatsTeam, BannerTeam
 
 
 class GameIDException(Exception):
     def __init__(self, game_id):
         super().__init__(f'The Game ID supplied ({game_id}) is not valid')
+
+
+class BaseGame(object):
+    """The BaseGame class. This should only be used a parent class 
+        for user defined game classes.
+
+    NOTE: This class is not fully implemented and may never be. Currently
+        here for possibilities. 
+    """
+
+    def __init__(self, game_id):
+        self.game_id = game_id
+        self.home = None
+        self.away = None
+
+    def update(self):
+        raise NotImplementedError()
 
 
 class BannerGame(object):
@@ -19,21 +36,20 @@ class BannerGame(object):
 
     Data is collected from Url.GAME endpoint.
 
-    TODO: shorten game_info to game_info['gameData'] etc.
     TODO: Write up documentation.
-    TODO: Think about using decorators for attributes.
     """
 
-    def __init__(self, game_id=None):
-        if not game_id:
-            raise GameIDException
-
+    def __init__(self, game_id, team_class=BannerTeam, game_info=None, inherits=False):
         self.game_id = game_id
 
-        game_info = request(Url.GAME, url_mods={'game_id': game_id})
+        start_r = arrow.now()
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
+        print('request took: ' + str(arrow.now() - start_r))
 
-        self.home = GameStatsTeam(self, game_id, 'home', game_info)
-        self.away = GameStatsTeam(self, game_id, 'away', game_info)
+        start_i = arrow.now()
+        self.home = team_class(self, game_id, 'home', game_info)
+        self.away = team_class(self, game_id, 'away', game_info)
 
         self.game_status = int(game_info['gameData']['status']['statusCode'])
         self.start_time = arrow.get(
@@ -46,6 +62,7 @@ class BannerGame(object):
             self.time = None
             self.in_intermission = False
             self.is_live = False
+            self.is_final = False
         else:
             self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']
             self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']
@@ -57,6 +74,8 @@ class BannerGame(object):
             else:
                 self.is_final = False
                 self.is_live = True
+
+        print('Init took: ' + str(arrow.now() - start_i))
 
     def update(self):
         """
@@ -71,12 +90,8 @@ class BannerGame(object):
 
         _status_code = int(game_info['gameData']['status']['statusCode'])
 
-        # could check just _status_code, to check if game is still in preview
-        # however would prefer to check both just in case
+        # game status hasn't changed
         if _status_code in GAME_STATUS['Preview'] and self.game_status in GAME_STATUS['Preview']:
-            # if this check hits, just replace the game_status with _status_code
-            # The Preview status code is 1 and 2 and this just updates the code
-            # similar to is_final if the game hasn't changed state just return
             self.game_status = _status_code
             return
         else:
@@ -84,11 +99,13 @@ class BannerGame(object):
             self.game_status = _status_code
 
         # only these values need to be updated
-        self.home_score = game_info['liveData']['teams']['home']['goals']
-        self.away_score = game_info['liveData']['teams']['away']['goals']
         self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']
         self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']
         self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']
+
+        # this will call update no matter the Team Class type
+        self.home.update(game_info)
+        self.away.update(game_info)
 
         if self.game_status in GAME_STATUS['Final']:
             self.is_final = True
@@ -96,51 +113,29 @@ class BannerGame(object):
         else:
             self.is_live = True
 
-    # are these two functions even necessary?
-    def is_live(self):
-        return self.is_live
-
-    def is_finished(self):
-        return self.is_final
-
-    def leading_team(self):
-        if self.home_score > self.away_score:
-            return self.home_abb
-        elif self.away_score > self.home_score:
-            return self.away_abb
-        else:
-            return None
-
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
 
 
-class FullGame(object):
+class FullGame(BannerGame):
     """
     The Full Game class is designed to encapsulate MOST of a games stats. 
     BannerGame is for simple data display/collection. This class will hold all
     stats such as shots, saves, powerplays, etc. 
 
-    NOTE: FullGame DOES NOT inherit from BannerGame in large part because it
-    would require two requests to the same endpoint. I have some ideas on how
-    to circumvent this problem, but it introduces too much complexity.   
-
-    TODO:Finish creation and update function
     """
 
-    def __init__(self, game_id=None):
-        if not game_id:
-            raise GameIDException
+    def __init__(self, game_id, game_info=None):
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.game_id = game_id
-
-        game_info = request(Url.GAME, url_mods={'game_id': game_id})
+        super().__init__(game_id, team_class=FullStatsTeam, game_info=game_info)
 
     def update(self):
-        pass
+        super().update()
 
 
-def get_game_ids(params=None):
+def get_game_ids(url_mods=None, params=None):
     """
     Return a list of game ids based on specific url parameters.
 
@@ -151,7 +146,7 @@ def get_game_ids(params=None):
         list: returns list of game ids for selected query
     """
 
-    game_info = request(Url.SCHEDULE, params=params)
+    game_info = request(Url.SCHEDULE, url_mods=url_mods, params=params)
 
     ids = []
     # dates is a list of all days requested

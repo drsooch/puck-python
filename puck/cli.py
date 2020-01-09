@@ -1,6 +1,7 @@
 import click
 import arrow
 
+
 from puck.utils import style
 from puck.GamesHandler import games_handler
 
@@ -69,6 +70,7 @@ class ISODateType(click.ParamType):
         # simply attempt to create an arrow object with the input
         # if it fails, return false
         try:
+            # this format can extend to YYYY-MM-DD
             arrow.get(value, 'YYYY-M-D')
         except ValueError as e:
             return False
