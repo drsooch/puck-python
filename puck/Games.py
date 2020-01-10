@@ -1,8 +1,8 @@
 import arrow
 
-from puck.urls import Url
-from puck.utils import GAME_STATUS, request
-from puck.Teams import FullStatsTeam, BannerTeam
+from .urls import Url
+from .utils import GAME_STATUS, request
+from .Teams import FullStatsTeam, BannerTeam
 
 
 class GameIDException(Exception):
@@ -27,6 +27,13 @@ class BaseGame(object):
         raise NotImplementedError()
 
 
+# class CLIGame(object):
+#     def __init__(self, game_id, game_info):
+#         self.game_id = game_id
+
+#         self.home = 
+
+
 class BannerGame(object):
     """
     The generic Game Class. This class holds basic data about each game. 
@@ -39,15 +46,12 @@ class BannerGame(object):
     TODO: Write up documentation.
     """
 
-    def __init__(self, game_id, team_class=BannerTeam, game_info=None, inherits=False):
+    def __init__(self, game_id, game_info=None, team_class=BannerTeam):
         self.game_id = game_id
 
-        start_r = arrow.now()
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
-        print('request took: ' + str(arrow.now() - start_r))
 
-        start_i = arrow.now()
         self.home = team_class(self, game_id, 'home', game_info)
         self.away = team_class(self, game_id, 'away', game_info)
 
@@ -75,7 +79,6 @@ class BannerGame(object):
                 self.is_final = False
                 self.is_live = True
 
-        print('Init took: ' + str(arrow.now() - start_i))
 
     def update(self):
         """
@@ -129,7 +132,7 @@ class FullGame(BannerGame):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        super().__init__(game_id, team_class=FullStatsTeam, game_info=game_info)
+        super().__init__(game_id=game_id, game_info=game_info, team_class=FullStatsTeam)
 
     def update(self):
         super().update()

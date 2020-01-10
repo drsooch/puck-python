@@ -1,0 +1,56 @@
+Current Full Statistics: 
+Mean = 1.5671089
+Median = 1.5181550000000001
+Std Dev = 0.16385139234895135
+Variance = 0.026847278774689995
+Min = 1.377349, Max = 2.067436
+
+Current Banner Statistics: 
+Mean = 1.5336499333333333
+Median = 1.517688
+Std Dev = 0.12606003976966249
+Variance = 0.015891133626728886
+Min = 1.321584, Max = 1.91922
+
+Simple Async Full Statistics: 
+Mean = 0.7426515666666667
+Median = 0.5008005
+Std Dev = 0.42194627875016527
+Variance = 0.1780386621511122
+Min = 0.249014, Max = 1.313459
+
+Simple Async Banner Statistics: 
+Mean = 0.7655525666666666
+Median = 0.49269050000000003
+Std Dev = 0.44093274808740646
+Variance = 0.19442168833591222
+Min = 0.259549, Max = 1.398149
+
+Complex Async Full Statistics: 
+Mean = 0.4172417666666667
+Median = 0.3986095
+Std Dev = 0.07371336373398577
+Variance = 0.005433659992978889
+Min = 0.335679, Max = 0.756835
+
+Complex Async Banner Statistics: 
+Mean = 0.41909386666666665
+Median = 0.4085185
+Std Dev = 0.05779475239542849
+Variance = 0.0033402334044488878
+Min = 0.352207, Max = 0.550078
+
+No Async Full Statistics: 
+Mean = 1.5596957333333334
+Median = 1.5052955
+Std Dev = 0.1994093649251765
+Variance = 0.03976409481986221
+Min = 1.340723, Max = 2.338507
+
+No Async Banner Statistics: 
+Mean = 1.5615309333333334
+Median = 1.5259125
+Std Dev = 0.12771829446140004
+Variance = 0.016311962740128888
+Min = 1.378942, Max = 2.007644
+

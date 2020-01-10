@@ -1,9 +1,10 @@
 import arrow
+import asyncio
 import click
 
-from puck.Games import BannerGame, FullGame, get_game_ids
-from puck.urls import Url
-from puck.utils import request, shorten_tname, team_to_id
+from .Games import BannerGame, FullGame, get_game_ids
+from .urls import Url
+from .utils import request, batch_request_create, team_to_id
 
 
 def games_handler(config, cmd_vals):
@@ -128,55 +129,9 @@ def verbose_games_echo(games):
 
 def normal_games_echo(params=None):
     game_ids = get_game_ids(params=params)
-    games_list = []
-    for game in game_ids:
-        games_list.append(BannerGame(game))
 
+    games_list = asyncio.run(batch_request_create(game_ids, 'banner'))
     build_norm_output(games_list)
-
-
-def build_games_list(games, verbose=False):
-    """
-    Build a list of games from game ids gathered
-    """
-    games_list = []
-
-    for game in games:
-
-        if game.get('gamePk'):
-            game_id = game['gamePk']
-        else:
-            # Decide whether to use continue or not.
-            continue
-            # raise GameIDException
-
-        # maybe use get method?
-        init_args = {
-            'game_id': game_id,
-            'home_team': {
-                'full': game['teams']['home']['team']['name'],
-                'short': shorten_tname(game['teams']['home']['team']['name'])
-            },
-            'away_team': {
-                'full': game['teams']['away']['team']['name'],
-                'short': shorten_tname(game['teams']['away']['team']['name'])
-            },
-            'home_score': game['teams']['home']['score'],
-            'away_score': game['teams']['away']['score'],
-
-            # value is a string for some reason
-            'game_status': int(game['status']['statusCode']),
-
-            # get this value in case game has not started
-            'start_time': arrow.get(game['gameDate']).to('local').strftime('%I:%M %p %Z')
-        }
-
-        if verbose:
-            games_list.append(VerboseGame(**init_args))
-        else:
-            games_list.append(BannerGame(**init_args))
-
-    return games_list
 
 
 def build_norm_output(g_list):

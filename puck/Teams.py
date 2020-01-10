@@ -1,5 +1,5 @@
-from puck.urls import Url
-from puck.utils import GAME_STATUS, request
+from .urls import Url
+from .utils import GAME_STATUS, request
 
 
 class TeamIDException(Exception):
@@ -15,7 +15,8 @@ class InvalidTeamType(Exception):
 class BaseTeam(object):
     """
     BaseTeam object holds all data retrieved from api_endpoint/teams/{ID}
-    Useful for holding a teams ID, name (short and long), and other misc. data.
+    NOTE: The current implementation does not retrieve from the endpoint above.
+        Must pass the data directly to the object.
 
     Attributes:
         team_id (int): API ID number for a team
@@ -26,23 +27,28 @@ class BaseTeam(object):
         team_url (str): A team's home page url
 
     Raises:
-        TeamIDException: Creation fails when an invalid team ID is passed
+        InvalidTeamType: Creation fails when an invalid team type is passed
     """
 
-    def __init__(self, team_id, **mods):
+    def __init__(self, team_data, team_type):
         """Constructor for BaseTeam. 
 
         Args:
             team_id (int): API ID number for a team
-            **mods: Modifications to the base class, none possible yet.
+            team_type (str): Either "home" or "away"
+
+        Raises:
+            InvalidTeamType
         """
+        team_type = team_type.lower()
 
-        self.team_id = team_id
+        if team_type != 'home' and team_type != 'away':
+            raise InvalidTeamType
 
-        team_data = request(Url.TEAMS, url_mods={'team_id': team_id})
         # shortens the json "tree"
-        team_data = team_data['teams'][0]
+        team_data = team_data['gameData']['teams'][team_type]
 
+        self.team_id = team_data['id']
         self.long_name = team_data['name']
         self.abbreviation = team_data['abbreviation']
         self.division = team_data['division']['name']
@@ -97,7 +103,7 @@ class BannerTeam(BaseTeam):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # call parent class constructor
-        super().__init__(team_id=team_id)
+        super().__init__(game_info, team_type)
 
         self._game = game
         self.game_id = game_id
@@ -161,7 +167,7 @@ class FullStatsTeam(BaseTeam):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # Call the parent class constructor
-        super().__init__(team_id=team_id)
+        super().__init__(game_info, team_type)
 
         # holds reference to the Game "container"
         self._game = game

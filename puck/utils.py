@@ -1,6 +1,8 @@
+import asyncio
 import json
 import sys
 
+import aiohttp
 import arrow
 import click
 import requests
@@ -13,8 +15,8 @@ class TeamException(Exception):
 
 
 GAME_STATUS = {
-    'Preview': [1, 2],
-    'Final': [6, 7],
+    'Preview': [1, 2, 8, 9],
+    'Final': [5, 6, 7],
     'Live': [3, 4]
 }
 # GAME_D_STATUS = {
@@ -85,7 +87,7 @@ def request(url, url_mods=None, params=None):
     """
 
     if url_mods:
-        _url = _generate_url(url.value, url_mods)
+        _url = _generate_url(url, url_mods)
     else:
         _url = url.value
     try:
@@ -93,52 +95,60 @@ def request(url, url_mods=None, params=None):
             if f.status_code == requests.codes.ok:
                 return f.json()
             else:
-                cached_result = _get_from_cache(_url, params)
-                if cached_result:
-                    return json.load(cached_result)
-                else:
-                    sys.exit('Fatal Error: Unable to load data, try again later.')
+                sys.exit('Fatal Error: Unable to load data, try again later.')
     except:
         # raise generic exception for a poor URL
         raise URLException
 
 
-async def request_a(url, url_mods=None, params=None):
-    """
-    The async version of the base request for querying the NHL api. Attempts to 
-    get a JSON of requested information. In the event the request fails, a cached 
-    result will be checked. If this fails, a fatal error occurs and ends the program
+async def batch_request_create(game_ids, class_type):
+    """Batch creation for Game objects. This drastically improves performance
+        when creating multiple game objects. 
 
     Args:
-        url (Url): The url to query (from puck.Url)
-
-    Kwargs:
-        url_mods (dict): Any modifications for the base Url
-        params (dict): Any parameters to pass to the Url
+        game_ids (List of Ints): List of game ids to create game objects
+        class_type (BaseGame): Game object type to create.
+    Raises:
+        URLException: NotImplemented
 
     Returns:
-        json
-
-    TODO: Better Error checking than '200 OK'
+        [dict]: A list of game objects containing the json responses of each query. 
     """
+    async with aiohttp.ClientSession() as session:
+        workers = []
+        for _id in game_ids:
+            workers.append(_create_game(
+                Url.GAME, _id, class_type, session))
 
-    if url_mods:
-        _url = _generate_url(url.value, url_mods)
+        games = await asyncio.gather(*workers)
+    return games
+
+
+async def _create_game(url, _id, class_type, session):
+    url = _generate_url(url, {'game_id': _id})
+    resp = await session.request(method='GET', url=url)
+    json = await resp.json()
+
+    if class_type == 'full':
+        game = await _init_full(_id, json)
+    elif class_type == 'banner':
+        game = await _init_banner(_id, json)
     else:
-        _url = url.value
-    try:
-        with requests.get(_url, params=params, timeout=5) as f:
-            if f.status_code == requests.codes.ok:
-                return f.json()
-            else:
-                cached_result = _get_from_cache(_url, params)
-                if cached_result:
-                    return json.load(cached_result)
-                else:
-                    sys.exit('Fatal Error: Unable to load data, try again later.')
-    except:
-        # raise generic exception for a poor URL
-        raise URLException
+        raise ValueError(f'{class_type} is not a valid game type.')
+
+    return game
+
+
+async def _init_full(_id, json):
+    # This import is here to block a circular import
+    # TODO: Restructure modules?
+    from .Games import FullGame
+    return FullGame(_id, json)
+
+
+async def _init_banner(_id, json):
+    from .Games import BannerGame
+    return BannerGame(_id, json)
 
 
 def _generate_url(url, url_mods):
@@ -146,22 +156,13 @@ def _generate_url(url, url_mods):
     Takes a url and url modifications and creates a full Url
     Used to create a url with unique values (ie. Team, ID, etc.)
     """
-    if Url.GAME.value == url:
-        url = url.format(url_mods['game_id'])
+    if Url.GAME == url:
+        url = url.value.format(url_mods['game_id'])
 
-    if Url.TEAMS.value == url:
-        url = url.format(url_mods['team_id'])
+    if Url.TEAMS == url:
+        url = url.value.format(url_mods['team_id'])
 
     return url
-
-
-def _get_from_cache(url, params):
-    """
-    Check to see if requested information is in the cache and hasn't gone stale
-
-    TODO: Dealing with cached results that don't match params
-    """
-    return None
 
 
 def team_to_id(team):
