@@ -11,11 +11,11 @@ class GameIDException(Exception):
 
 
 class BaseGame(object):
-    """The BaseGame class. This should only be used a parent class 
+    """The BaseGame class. This should only be used a parent class
         for user defined game classes.
 
     NOTE: This class is not fully implemented and may never be. Currently
-        here for possibilities. 
+        here for possibilities.
     """
 
     def __init__(self, game_id):
@@ -27,19 +27,12 @@ class BaseGame(object):
         raise NotImplementedError()
 
 
-# class CLIGame(object):
-#     def __init__(self, game_id, game_info):
-#         self.game_id = game_id
-
-#         self.home = 
-
-
 class BannerGame(object):
     """
-    The generic Game Class. This class holds basic data about each game. 
+    The generic Game Class. This class holds basic data about each game.
     Creation will fail if the game ID doesnt exist.
 
-    Banner should be used in the display of simple data. 
+    Banner should be used in the display of simple data.
 
     Data is collected from Url.GAME endpoint.
 
@@ -67,10 +60,12 @@ class BannerGame(object):
             self.in_intermission = False
             self.is_live = False
             self.is_final = False
+            self.is_preview = True
         else:
-            self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']
-            self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']
-            self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']
+            self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']  # noqa
+            self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
+            self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
+            self.is_preview = False
 
             if self.game_status in GAME_STATUS['Final']:
                 self.is_final = True
@@ -79,8 +74,7 @@ class BannerGame(object):
                 self.is_final = False
                 self.is_live = True
 
-
-    def update(self):
+    def update(self, game_info=None):
         """
         This class method updates a game object.
         """
@@ -89,32 +83,34 @@ class BannerGame(object):
         if self.is_final:
             return
 
-        game_info = request(Url.GAME, url_mods={'game_id': self.game_id})
+        if not game_info:
+            game_info = request(Url.GAME, url_mods={'game_id': self.game_id})
 
         _status_code = int(game_info['gameData']['status']['statusCode'])
 
         # game status hasn't changed
-        if _status_code in GAME_STATUS['Preview'] and self.game_status in GAME_STATUS['Preview']:
+        if _status_code in GAME_STATUS['Preview'] and self.is_preview:  # noqa
             self.game_status = _status_code
             return
         else:
             # game state has changed
             self.game_status = _status_code
+            self.is_preview = False
+
+            if self.game_status in GAME_STATUS['Final']:
+                self.is_final = True
+                self.is_live = False
+            else:
+                self.is_live = True
 
         # only these values need to be updated
-        self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']
-        self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']
-        self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']
+        self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']  # noqa
+        self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
+        self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
 
         # this will call update no matter the Team Class type
         self.home.update(game_info)
         self.away.update(game_info)
-
-        if self.game_status in GAME_STATUS['Final']:
-            self.is_final = True
-            self.is_live = False
-        else:
-            self.is_live = True
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
@@ -122,9 +118,9 @@ class BannerGame(object):
 
 class FullGame(BannerGame):
     """
-    The Full Game class is designed to encapsulate MOST of a games stats. 
+    The Full Game class is designed to encapsulate MOST of a games stats.
     BannerGame is for simple data display/collection. This class will hold all
-    stats such as shots, saves, powerplays, etc. 
+    stats such as shots, saves, powerplays, etc.
 
     """
 
@@ -132,10 +128,10 @@ class FullGame(BannerGame):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        super().__init__(game_id=game_id, game_info=game_info, team_class=FullStatsTeam)
+        super().__init__(game_id=game_id, game_info=game_info, team_class=FullStatsTeam)  # noqa
 
-    def update(self):
-        super().update()
+    def update(self, game_info=None):
+        super().update(game_info)
 
 
 def get_game_ids(url_mods=None, params=None):

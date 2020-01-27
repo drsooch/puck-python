@@ -31,7 +31,7 @@ class BaseTeam(object):
     """
 
     def __init__(self, team_data, team_type):
-        """Constructor for BaseTeam. 
+        """Constructor for BaseTeam.
 
         Args:
             team_id (int): API ID number for a team
@@ -51,6 +51,7 @@ class BaseTeam(object):
         self.team_id = team_data['id']
         self.long_name = team_data['name']
         self.abbreviation = team_data['abbreviation']
+        return  # ALLSTAR GAME
         self.division = team_data['division']['name']
         self.conference = team_data['conference']['name']
         self.team_url = team_data['officialSiteUrl']
@@ -65,8 +66,8 @@ class BannerTeam(BaseTeam):
     Attributes:
         goals (int): a team's goals
         team_type (str): "home" or "away"
-        _game (Game): Any object that inherits a game type. The parent container that holds
-            reference to this object. 
+        _game (Game): Any object that inherits a game type.
+            The parent container that holds reference to this object.
 
     Raises:
         InvalidTeamType: If 'home' or 'away' is not supplied
@@ -80,8 +81,8 @@ class BannerTeam(BaseTeam):
             game (BannerGame): Any game that inherits BannerGame
             game_id (int): API Game ID
             team_type (str): Either "home" or "away"
-            game_info (dict, optional): JSON API response represented as dictionary.
-                Defaults to None.
+            game_info (dict, optional): JSON API response represented as a
+                dictionary. Defaults to None.
 
         Raises:
             InvalidTeamType: If 'home' or 'away' is not supplied
@@ -109,17 +110,17 @@ class BannerTeam(BaseTeam):
         self.game_id = game_id
 
         # the only data we need to track.
-        self.goals = game_info['liveData']['linescore']['teams'][team_type]['goals']
+        self.goals = game_info['liveData']['linescore']['teams'][team_type]['goals']  # noqa
 
     def update(self, game_info=None):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.goals = game_info['liveData']['linescore']['teams'][self.team_type]['goals']
+        self.goals = game_info['liveData']['linescore']['teams'][self.team_type]['goals']  # noqa
 
 
 class FullStatsTeam(BaseTeam):
-    """    
+    """
     This class is designed for use in conjuction with a FullGame object.
     Built upon the BaseTeam class, this class gathers stats relevant to
     whatever game its attached to.
@@ -141,10 +142,12 @@ class FullStatsTeam(BaseTeam):
         """Constructor for GameStatsTeam
 
         Args:
-            game (BannerGame or FullGame): The Container object. Any object that inherits BannerGame
+            game (BannerGame or FullGame): The Container object. Any object
+                                           that inherits BannerGame
             game_id (int): API Game ID
             team_type (str): Either 'home' or 'away'
-            game_info (dict, optional): JSON API response represented as dictionary
+            game_info (dict, optional): JSON API response represented as
+                                        a dictionary
 
         Raises:
             InvalidTeamType: If 'home' or 'away' is not supplied
@@ -184,8 +187,8 @@ class FullStatsTeam(BaseTeam):
         # ShootOutStats object for easier referencing
         if game_info['liveData']['linescore']['hasShootout']:
             self.shootout = ShootoutStats(
-                goals=game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores'],
-                attempts=game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
+                goals=game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores'],  # noqa
+                attempts=game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
             )
         else:
             self.shootout = ShootoutStats()
@@ -193,25 +196,26 @@ class FullStatsTeam(BaseTeam):
         self.player_stats = None  # TODO: player stats.
 
     def update(self, game_info=None):
-        """Updates an object using fresh data. 
+        """Updates an object using fresh data.
 
         Args:
-            game_info (dict, optional): JSON API response represented as dictionary. Defaults to None.
+            game_info (dict, optional): JSON API response represented as
+                                        a dictionary. Defaults to None.
         """
 
-        # if no json is passed.
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
         _status_code = int(game_info['gameData']['status']['statusCode'])
 
-        # NOTE: This check could fail if the game status code is updated before this.
-        if _status_code in GAME_STATUS['Preview'] and self._game.game_status in GAME_STATUS['Preview']:
+        # NOTE: This check could fail if the game status code
+        #       is updated before this.
+        if _status_code in GAME_STATUS['Preview'] and self._game.game_status in GAME_STATUS['Preview']:  # noqa
             # end update early as game is still in preview
-            # see BannerGame.update() on discussion for why this check is the way it is
+            # see BannerGame.update() on discussion for why this check
+            # is the way it is
             return
 
-        # invoke internal set methods
         self._set(game_info)
         self.periods.update(
             game_info['liveData']['linescore']['periods'],
@@ -219,14 +223,14 @@ class FullStatsTeam(BaseTeam):
         )
 
         if game_info['liveData']['linescore']['hasShootout']:
-            self.shootout.goals = game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores']
-            self.shootout.attempts = game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']
+            self.shootout.goals = game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores']  # noqa
+            self.shootout.attempts = game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
 
     def _set(self, game_info):
         """Internal Use Only. The main code for setting/updating values"""
         # shortened JSON paths
         live_data = game_info['liveData']
-        team_stats = game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']
+        team_stats = game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
 
         # could just use team_data['teamStats']['teamSkaterStats']
         # but choosing to make each an attribute
@@ -262,13 +266,13 @@ class PeriodStats(object):
         in this class.
 
     Attributes:
-        first (Period): Contains first period stats 
-        second (Period): Contains second period stats 
-        third (Period): Contains third period stats 
-        ot (Period): Contains fourth period stats 
+        first (Period): Contains first period stats
+        second (Period): Contains second period stats
+        third (Period): Contains third period stats
+        ot (Period): Contains fourth period stats
 
     TODO:
-        Model playoffs better. 
+        Model playoffs better.
     """
 
     def __init__(self, periods=None, team_type=None):

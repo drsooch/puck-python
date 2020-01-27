@@ -21,7 +21,7 @@ class MutuallyExclusiveOption(click.Option):
     This class is used to make options mutually exclusive.
 
     Thanks to this Stack Overflow Answer:
-    https://stackoverflow.com/questions/37310718/mutually-exclusive-option-groups-in-python-click
+    https://stackoverflow.com/questions/37310718/mutually-exclusive-option-groups-in-python-click   # noqa
 
     Additional thanks to the Watson CLI program for help in adding the _exclusive_error function
     https://github.com/TailorDev/Watson/blob/master/watson/cli.py 
@@ -52,7 +52,8 @@ class MutuallyExclusiveOption(click.Option):
 class ISODateType(click.ParamType):
     """
     ISODate type is YYYY-MM-DD format mainly used in the games command.
-    NOTE: only need Year in YYYY format. MM and DD can pass without leading zeroes.
+    NOTE: only need Year in YYYY format. MM and DD can pass without
+        leading zeroes.
     """
     name = 'date'
 
@@ -62,7 +63,8 @@ class ISODateType(click.ParamType):
         if value and self._is_valid_input(value):
             return value
 
-        errmsg = f'Invalid input: {value}. Please use the ISO Date format YYYY-MM-DD.\n       ' \
+        errmsg = f'Invalid input: {value}. Please use the ISO' \
+            'Date format YYYY-MM-DD.\n       ' \
             'Please make sure input is a valid date.'
         raise click.ClickException(style(errmsg, 'error'))
 
@@ -122,7 +124,7 @@ def cli(ctx, verbose, output_file):
 )
 @click.option(
     '-r', '--date-range', required=False, nargs=2, type=Date,
-    help='Query a date range (YYYY-MM-DD) to (YYYY-MM-DD)', cls=MutuallyExclusiveOption,
+    help='Query a date range (YYYY-MM-DD) to (YYYY-MM-DD)', cls=MutuallyExclusiveOption,  # noqa
     mutually_exclusive=['today', 'yesterday', 'tomorrow', 'date']
 )
 @click.pass_context
