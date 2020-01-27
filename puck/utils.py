@@ -38,40 +38,30 @@ _TEAM_ID = {
 }
 
 _TEAM_SL = {
-    'NJD': 'New Jersey Devils', 'NYI': 'New York Islanders',
-    'NYR': 'New York Rangers', 'PHI': 'Philadelphia Flyers',
-    'PIT': 'Pittsburgh Penguins', 'BOS': 'Boston Bruins',
-    'BUF': 'Buffalo Sabres', 'MTL': 'Montréal Canadiens',
-    'OTT': 'Ottawa Senators', 'TOR': 'Toronto Maple Leafs',
-    'CAR': 'Carolina Hurricanes', 'FLA': 'Florida Panthers',
-    'TBL': 'Tampa Bay Lightning', 'WSH': 'Washington Capitals',
-    'CHI': 'Chicago Blackhawks', 'DET': 'Detroit Red Wings',
-    'NSH': 'Nashville Predators', 'STL': 'St. Louis Blues',
-    'CGY': 'Calgary Flames', 'COL': 'Colorado Avalanche',
-    'EDM': 'Edmonton Oilers', 'VAN': 'Vancouver Canucks',
-    'ANA': 'Anaheim Ducks', 'DAL': 'Dallas Stars',
-    'LAK': 'Los Angeles Kings', 'SJS': 'San Jose Sharks',
-    'CBJ': 'Columbus Blue Jackets', 'MIN': 'Minnesota Wild',
-    'WPG': 'Winnipeg Jets', 'ARI': 'Arizona Coyotes',
+    'NJD': 'New Jersey Devils', 'NYI': 'New York Islanders', 'NYR': 'New York Rangers',
+    'PHI': 'Philadelphia Flyers', 'PIT': 'Pittsburgh Penguins', 'BOS': 'Boston Bruins',
+    'BUF': 'Buffalo Sabres', 'MTL': 'Montréal Canadiens', 'OTT': 'Ottawa Senators',
+    'TOR': 'Toronto Maple Leafs', 'CAR': 'Carolina Hurricanes', 'FLA': 'Florida Panthers',
+    'TBL': 'Tampa Bay Lightning', 'WSH': 'Washington Capitals', 'CHI': 'Chicago Blackhawks',
+    'DET': 'Detroit Red Wings', 'NSH': 'Nashville Predators', 'STL': 'St. Louis Blues',
+    'CGY': 'Calgary Flames', 'COL': 'Colorado Avalanche', 'EDM': 'Edmonton Oilers',
+    'VAN': 'Vancouver Canucks', 'ANA': 'Anaheim Ducks', 'DAL': 'Dallas Stars',
+    'LAK': 'Los Angeles Kings', 'SJS': 'San Jose Sharks', 'CBJ': 'Columbus Blue Jackets',
+    'MIN': 'Minnesota Wild', 'WPG': 'Winnipeg Jets', 'ARI': 'Arizona Coyotes',
     'VGK': 'Vegas Golden Knights'
 }
 
 _TEAM_LS = {
-    'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI',
-    'New York Rangers': 'NYR', 'Philadelphia Flyers': 'PHI',
-    'Pittsburgh Penguins': 'PIT', 'Boston Bruins': 'BOS',
-    'Buffalo Sabres': 'BUF', 'Montréal Canadiens': 'MTL',
-    'Ottawa Senators': 'OTT', 'Toronto Maple Leafs': 'TOR',
-    'Carolina Hurricanes': 'CAR', 'Florida Panthers': 'FLA',
-    'Tampa Bay Lightning': 'TBL', 'Washington Capitals': 'WSH',
-    'Chicago Blackhawks': 'CHI', 'Detroit Red Wings': 'DET',
-    'Nashville Predators': 'NSH', 'St. Louis Blues': 'STL',
-    'Calgary Flames': 'CGY', 'Colorado Avalanche': 'COL',
-    'Edmonton Oilers': 'EDM', 'Vancouver Canucks': 'VAN',
-    'Anaheim Ducks': 'ANA', 'Dallas Stars': 'DAL',
-    'Los Angeles Kings': 'LAK', 'San Jose Sharks': 'SJS',
-    'Columbus Blue Jackets': 'CBJ', 'Minnesota Wild': 'MIN',
-    'Winnipeg Jets': 'WPG', 'Arizona Coyotes': 'ARI',
+    'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI', 'New York Rangers': 'NYR',
+    'Philadelphia Flyers': 'PHI', 'Pittsburgh Penguins': 'PIT', 'Boston Bruins': 'BOS',
+    'Buffalo Sabres': 'BUF', 'Montréal Canadiens': 'MTL', 'Ottawa Senators': 'OTT',
+    'Toronto Maple Leafs': 'TOR', 'Carolina Hurricanes': 'CAR', 'Florida Panthers': 'FLA',
+    'Tampa Bay Lightning': 'TBL', 'Washington Capitals': 'WSH', 'Chicago Blackhawks': 'CHI',
+    'Detroit Red Wings': 'DET', 'Nashville Predators': 'NSH', 'St. Louis Blues': 'STL',
+    'Calgary Flames': 'CGY', 'Colorado Avalanche': 'COL', 'Edmonton Oilers': 'EDM',
+    'Vancouver Canucks': 'VAN', 'Anaheim Ducks': 'ANA', 'Dallas Stars': 'DAL',
+    'Los Angeles Kings': 'LAK', 'San Jose Sharks': 'SJS', 'Columbus Blue Jackets': 'CBJ',
+    'Minnesota Wild': 'MIN', 'Winnipeg Jets': 'WPG', 'Arizona Coyotes': 'ARI',
     'Vegas Golden Knights': 'VGK'
 }
 
@@ -113,7 +103,7 @@ def request(url, url_mods=None, params=None):
 
 async def batch_request_create(game_ids, class_type):
     """Batch creation for Game objects. This drastically improves performance
-        when creating multiple game objects.
+        when creating multiple game objects. 
 
     Args:
         game_ids (List of Ints): List of game ids to create game objects
@@ -122,29 +112,16 @@ async def batch_request_create(game_ids, class_type):
         URLException: NotImplemented
 
     Returns:
-        [dict]: A list of game objects containing the json responses of
-                each query.
+        [dict]: A list of game objects containing the json responses of each query. 
     """
     async with aiohttp.ClientSession() as session:
         workers = []
         for _id in game_ids:
-            workers.append(
-                _create_game(Url.GAME, _id, class_type, session)
-            )
+            workers.append(_create_game(
+                Url.GAME, _id, class_type, session))
 
         games = await asyncio.gather(*workers)
     return games
-
-
-async def batch_request_update(games):
-    async with aiohttp.ClientSession() as session:
-        workers = []
-        for game in games:
-            workers.append(
-                _update_game(Url.GAME, game, session)
-            )
-
-        await asyncio.gather(*workers)
 
 
 async def _create_game(url, _id, class_type, session):
@@ -162,14 +139,6 @@ async def _create_game(url, _id, class_type, session):
     return game
 
 
-async def _update_game(url, game, session):
-    url = _generate_url(url, {'game_id': game.game_id})
-    resp = await session.request(method='GET', url=url)
-    json = await resp.json()
-
-    await _update_wrapper(game, json)
-
-
 async def _init_full(_id, json):
     # This import is here to block a circular import
     # TODO: Restructure modules?
@@ -180,10 +149,6 @@ async def _init_full(_id, json):
 async def _init_banner(_id, json):
     from .Games import BannerGame
     return BannerGame(_id, json)
-
-
-async def _update_wrapper(game, json):
-    game.update(json)
 
 
 def _generate_url(url, url_mods):

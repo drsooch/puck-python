@@ -79,7 +79,7 @@ def _date(cmd_vals):
     The value passed will be altered.
 
 
-    NOTE: The date strings should already be checked for validity.
+    NOTE: The date strings should already be checked for validity. 
         No need to check again.
     """
 
@@ -94,7 +94,7 @@ def _date_range(cmd_vals):
     Properly format the url parameters for --date-range.
     The value passed will be altered.
 
-    NOTE: The date strings should already be checked for validity.
+    NOTE: The date strings should already be checked for validity. 
         No need to check again.
     """
     # put dates in comparable format
@@ -115,7 +115,7 @@ def _today(cmd_vals):
     Properly format the url parameters for the -t/--today or no options.
     The value passed will be altered.
 
-    NOTE: The date strings should already be checked for validity.
+    NOTE: The date strings should already be checked for validity. 
         No need to check again.
     """
     _date = arrow.now().strftime('%Y-%m-%d')

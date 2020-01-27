@@ -1,8 +1,8 @@
-import urwid
-import urwid.raw_display
+import npyscreen as nps
 
-from puck.tui.PuckApp import PuckApp
+from tui.MainForm import MainForm
 
 
-if __name__ == "__main__":
-    PuckApp().run()
+class PuckApp(nps.NPSAppManaged):
+    def onStart(self):
+        self.MainForm = self.addForm('MAIN', MainForm, name='Puck')
