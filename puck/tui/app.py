@@ -5,4 +5,6 @@ from puck.tui.PuckApp import PuckApp
 
 
 if __name__ == "__main__":
-    PuckApp().run()
+    app = PuckApp()
+
+    app.run()

@@ -106,9 +106,8 @@ def request(url, url_mods=None, params=None):
                 return f.json()
             else:
                 sys.exit('Fatal Error: Unable to load data, try again later.')
-    except:
-        # raise generic exception for a poor URL
-        raise URLException
+    except Exception as e:
+        print(e)
 
 
 async def batch_request_create(game_ids, class_type):

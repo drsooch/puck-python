@@ -51,7 +51,6 @@ class BaseTeam(object):
         self.team_id = team_data['id']
         self.long_name = team_data['name']
         self.abbreviation = team_data['abbreviation']
-        return  # ALLSTAR GAME
         self.division = team_data['division']['name']
         self.conference = team_data['conference']['name']
         self.team_url = team_data['officialSiteUrl']

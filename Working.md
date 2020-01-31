@@ -3,31 +3,21 @@ Outline of what needs to be done for a stable Puck
 
 ### In Progress  
 - **Teams.py**
-  - [x] "Finalize" The team classes.
-  - [x] Implement necessary methods for MVP
   - [ ] Documentation
 - **Games.py**
-  - [ ] Finalize Game classes (Needs finalization of all team classes)
-  - [ ] Implement necessary methods for MVP
   - [ ] Documentation
 - **GamesHandler.py**
-  - [ ] Reimplement functions with new API (from Teams and Games)
-  - [ ] Fix the games_query() function (does the same thing as Games.get_game_id())
   - [ ] Documentation
 - **Utils.py**
   - [ ] Rework request to properly handle HTTP status codes and raise proper errors.
-  - [ ] Cache data in requests?
+  - [ ] Documentation
+- **TUI**
+  - [ ] Implement Games display page
+  - [ ] Finalize date picker and games panel mechanics
 
 ### Future
 - **TUI**
-  - Banner Node
-    - implement design
-    - action handlers (where will the user go if they select a game)
-  - Menu Node
-    - finalize design
-    - action handlers
   - Documentation
-  - Individual game page ALL
   - Standings page ALL
   - Stats page ALL
 - **CLI**
