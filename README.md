@@ -72,6 +72,9 @@ is to play with the import paths until one works.
 
 ## Final Notes:
 
+If you see code that "smells" or could be implemented differently, please don't hesitate to let me know. 
+I'm always open to suggestions and critiques!
+
 The code has a mix of docstrings and no docstrings. I haven't found the time to go through and create docstrings 
 for functions and classes yet. Please bear with me while I continue to work on this in my spare time.
 Also the test folder is empty... Because who needs testing......
