@@ -1,3 +1,5 @@
 {
-    "python.pythonPath": "/home/sooch/code/python/puck/bin/python3"
+    "python.pythonPath": "/home/sooch/code/python/puck/bin/",
+    "python.linting.pycodestyleEnabled": true,
+    "python.linting.enabled": true,
 }
