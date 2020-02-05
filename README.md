@@ -10,18 +10,18 @@ stay on top of my impending workload.
 ## CLI:
 The CLI interface is barebones. Currently only one subcommand is implemented: games.
 
-![puck cli](imgs/PuckCLIUsage.resized.png)
+![puck cli](imgs/PuckCLIusage.png)
 
 The main options are also not workable (-v and -o). I decided to make a TUI before I could
 iterate further on the CLI.
 
 Using the games subcommand is straightforward:
 
-![game command](imgs/PuckCLIgames.resized.png)
+![game command](imgs/PuckCLIgames.png)
 
 Selecting the option simply prints out the selected time frames games.
 
-![game command in action](imgs/PuckCLIgamesquery.resized.png)
+![game command in action](imgs/PuckCLIgamesquery.png)
 
 > **NOTE:** While writing this README, I realized I didn't fully implement the date range command. 
 > It will print out all the games with no delineation between them. **WOO!**
@@ -33,12 +33,12 @@ wrangling Urwid framework to conform to the Terminals size. In its current state
 sizing is hardcoded to fit in a full-screen terminal. Please let me know if you run into any
 issues with sizing let me know! (all 2 of you reading this)
 
-![Puck TUI usage](imgs/PuckTUIMain.resized.png)
+![Puck TUI usage](imgs/PuckTUImain.png)
 
 There's not much else you can do besides look at today's games. You can use the date selector to take a peek at other days. 
 As mentioned previously, sizing is off so in instances where there are not many games the sizing will look absurd...
 
-![showing off the date button](imgs/PuckTUIdate.resized.png)
+![showing off the date button](imgs/PuckTUIdate.png)
 
 **Note:** Yes the color of the date box is gross. It's for testing purposes :).
 
