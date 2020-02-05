@@ -78,3 +78,6 @@ I'm always open to suggestions and critiques!
 The code has a mix of docstrings and no docstrings. I haven't found the time to go through and create docstrings 
 for functions and classes yet. Please bear with me while I continue to work on this in my spare time.
 Also the test folder is empty... Because who needs testing......
+
+### Copyright:
+NHL and the NHL Shield are registered trademarks of the National Hockey League. NHL and NHL team marks are the property of the NHL and its teams. © NHL 2020. All Rights Reserved.
