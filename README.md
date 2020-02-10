@@ -43,6 +43,10 @@ As mentioned previously, sizing is off so in instances where there are not many 
 
 ![showing off the date button](imgs/PuckTUIdate.png)
 
+![Schedule View](imgs/PuckTUIschedule.png)
+
+![Box Scores](imgs/PuckTUIboxscore.png)
+
 **Note:** Yes the color of the date box is gross. It's for testing purposes :).
 
 ## Install and Run
