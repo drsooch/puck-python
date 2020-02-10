@@ -5,9 +5,10 @@ from copy import copy
 import urwid
 import urwid.raw_display
 from additional_urwid_widgets import DatePicker, MessageDialog
-from puck.Games import get_game_ids
+from puck.games import get_game_ids
 from puck.utils import batch_request_create, batch_request_update
-from puck.tui.GamePanel import GamePanel
+from puck.tui.game_panel import GamePanel
+from puck.tui.game_context import GamesContext
 
 VERSION = '0.1'
 ROW_SPACE = 6
@@ -15,9 +16,9 @@ APP_PROP = 4
 
 PALETTE = [
     ('main', 'white', 'black'),
+    ('menu_focus', 'standout', ''),
     ('dp_focus', 'black', 'white'),
     ('dp_no_focus', 'white', 'black'),
-    ('test', 'white', 'dark blue')
 ]
 
 
@@ -51,6 +52,7 @@ class PuckApp(object):
         )
 
         # main display
+        self.context = None
         self.context_menu = create_opening_menu(self.main_rows)
         self.display = create_opening_page(self.main_rows)
         self.main_display = urwid.Columns(
@@ -73,19 +75,32 @@ class PuckApp(object):
             self.frame, palette=PALETTE, screen=self.screen, pop_ups=True
         )
 
+    # -------------------------- Top Level Methods -------------------------#
     def run(self):
         self.loop.run()
 
     def update(self):
         asyncio.run(batch_request_update(self.banner_games))
 
+    # -------------------------- Button Methods --------------------------#
+    def destroy(self, btn=None):
+        self.loop.widget = self.frame
+
+    def error_message(self, msg, size=None):
+        ok = urwid.Button(u'OK', on_press=self.destroy)
+        if not size:
+            size = (self.cols // 3, self.rows // 3)
+        self.loop.widget = MessageDialog(
+            [msg], [ok], size, background=self.frame, contents_align='center'
+        )
+
     def switch_context(self, btn):
         # originally implemented using widgetPlaceholder however,
         # the listbox would not update resulting in context menu being
         # unselectable. Re-Render a whole new main display to work around
-        self.context_menu = create_context_menu(
-            self, btn.label, self.main_rows
-        )
+        self.context = GamesContext(self, self.main_rows)
+        self.display = self.context.display
+        self.context_menu = self.context.menu
         self._reload_maindisplay()
 
     def _date_picker(self, btn, caller):
@@ -93,29 +108,14 @@ class PuckApp(object):
         Date Picker widget creater. Caller refers to which button is
         calling the method: the game panel or game display.
         """
-        def destroy(btn=None):
-            self.loop.widget = self.frame
-        if caller == 'panel':
-            def change_date(btn, date):
-                _ids = get_game_ids(params={'date': str(date.get_date())})
-                self.banner_games = asyncio.run(
-                    batch_request_create(_ids, 'banner')
-                )
-                self.size = len(self.banner_games)
-                self._populate_hidden()
-                self.game_panel._update_in_place(date)
-                self._reload_topbar()
-                destroy()
-        else:
-            def change_date(btn, date):
-                print('changed')
+        on_press = getattr(caller, 'change_date')
 
         date_pick = DatePicker(
             highlight_prop=("dp_focus", "dp_no_focus")
         )
-        cancel = urwid.Button('Cancel', on_press=destroy)
+        cancel = urwid.Button('Cancel', on_press=self.destroy)
         select = urwid.Button(
-            'Select', on_press=change_date, user_data=date_pick
+            'Select', on_press=on_press, user_data=date_pick
         )
         btn_grid = urwid.GridFlow([cancel, select], 10, 5, 1, 'center')
 
@@ -129,7 +129,7 @@ class PuckApp(object):
 
         box = urwid.LineBox(base, title='Select a Date', title_align='center')
 
-        fill = urwid.AttrMap(urwid.Filler(box), 'test')
+        fill = urwid.AttrMap(urwid.Filler(box), 'date_pick')
 
         overlay = urwid.Overlay(
             fill, self.frame, 'center',
@@ -138,6 +138,7 @@ class PuckApp(object):
 
         self.loop.widget = overlay
 
+# -------------------------- Helper Methods --------------------------#
     def _sizing(self):
         self.rows = self.rows - ROW_SPACE  # remove space for proper rendering
         self.tb_rows = self.rows // APP_PROP
@@ -159,6 +160,9 @@ class PuckApp(object):
         self.hidden_next = deque([], self.size)
 
     def _reload_maindisplay(self):
+        # Have to "reset" the display variable to get the new context display
+        self.display = self.context.display
+
         self.main_display = urwid.Columns(
             [
                 ('weight', 1, self.context_menu),

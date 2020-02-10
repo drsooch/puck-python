@@ -92,8 +92,6 @@ def request(url, url_mods=None, params=None):
     Returns:
         json
 
-    TODO: Cache check? - currently have a cache function that does nothing
-    TODO: Better Error checking than '200 OK'
     """
 
     if url_mods:
@@ -105,6 +103,7 @@ def request(url, url_mods=None, params=None):
             if f.status_code == requests.codes.ok:
                 return f.json()
             else:
+                print(f'HTTP Error: {f.status_code} on -> {_url}')
                 sys.exit('Fatal Error: Unable to load data, try again later.')
     except Exception as e:
         print(e)
@@ -136,6 +135,11 @@ async def batch_request_create(game_ids, class_type):
 
 
 async def batch_request_update(games):
+    """Batch update for Game objects.
+
+    Args:
+        games (List of BaseGame): List of BaseGame objects to update
+    """
     async with aiohttp.ClientSession() as session:
         workers = []
         for game in games:
@@ -172,12 +176,12 @@ async def _update_game(url, game, session):
 async def _init_full(_id, json):
     # This import is here to block a circular import
     # TODO: Restructure modules?
-    from .Games import FullGame
+    from .games import FullGame
     return FullGame(_id, json)
 
 
 async def _init_banner(_id, json):
-    from .Games import BannerGame
+    from .games import BannerGame
     return BannerGame(_id, json)
 
 

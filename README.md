@@ -5,7 +5,7 @@ Puck the NHL CLI and TUI.
 Version 0.1 is being pushed to the repository. (Quite an arbitrary version number I know.)
 Part of the reasoning behind this is to expose my code to the outside world.
 Features are slowly being evolved, unfortunately a new semester has started and I have to
-stay on top of my impending workload. 
+stay on top of my impending workload.
 
 ## CLI:
 The CLI interface is barebones. Currently only one subcommand is implemented: games.
@@ -23,19 +23,22 @@ Selecting the option simply prints out the selected time frames games.
 
 ![game command in action](imgs/PuckCLIgamesquery.png)
 
-> **NOTE:** While writing this README, I realized I didn't fully implement the date range command. 
+> **NOTE:** While writing this README, I realized I didn't fully implement the date range command.
 > It will print out all the games with no delineation between them. **WOO!**
 
 
 ## TUI
 The actual TUI has its framework pretty set in stone. Unfortunately, I struggled with
-wrangling Urwid framework to conform to the Terminals size. In its current state a lot of 
+wrangling Urwid framework to conform to the Terminals size. In its current state a lot of
 sizing is hardcoded to fit in a full-screen terminal. Please let me know if you run into any
 issues with sizing let me know! (all 2 of you reading this)
 
 ![Puck TUI usage](imgs/PuckTUImain.png)
 
-There's not much else you can do besides look at today's games. You can use the date selector to take a peek at other days. 
+The Games menu option is currently the only one available. You can drill down into the box scores for past games and look at the
+upcoming schedule. Single Game Display is up next, but first work needs to be on tracking player stats for a more
+fleshed out experience.
+There's not much else you can do besides look at today's games. You can use the date selector to take a peek at other days.
 As mentioned previously, sizing is off so in instances where there are not many games the sizing will look absurd...
 
 ![showing off the date button](imgs/PuckTUIdate.png)
@@ -66,16 +69,16 @@ or
 
 `python3 puck/cli.py`
 
-Wait what's that? Python failed to import puck.whatever? 
+Wait what's that? Python failed to import puck.whatever?
 This happened more times than I can count. My best answer, until I clean up the code,
-is to play with the import paths until one works. 
+is to play with the import paths until one works.
 
 ## Final Notes:
 
-If you see code that "smells" or could be implemented differently, please don't hesitate to let me know. 
+If you see code that "smells" or could be implemented differently, please don't hesitate to let me know.
 I'm always open to suggestions and critiques!
 
-The code has a mix of docstrings and no docstrings. I haven't found the time to go through and create docstrings 
+The code has a mix of docstrings and no docstrings. I haven't found the time to go through and create docstrings
 for functions and classes yet. Please bear with me while I continue to work on this in my spare time.
 Also the test folder is empty... Because who needs testing......
 

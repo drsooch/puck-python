@@ -236,21 +236,16 @@ class FullStatsTeam(BaseTeam):
         self.goals = team_stats['goals']
         self.pims = team_stats['pim']
         self.shots = team_stats['shots']
-        self.pp_pct = float(
-            team_stats['powerPlayPercentage']
-        )
-        self.pp_goals = team_stats['powerPlayGoals']
-        self.pp_att = team_stats['powerPlayOpportunities']
-        self.faceoff_pct = float(
-            team_stats['faceOffWinPercentage']
-        )
+        self.pp_pct = team_stats['powerPlayPercentage']
+        # I wanted to leave these as is and not change their type, but
+        # the json module reads them as floats
+        self.pp_goals = int(team_stats['powerPlayGoals'])
+        self.pp_att = int(team_stats['powerPlayOpportunities'])
+        self.faceoff_pct = team_stats['faceOffWinPercentage']
         self.blocked_shots = team_stats['blocked']
         self.takeaways = team_stats['takeaways']
         self.giveaways = team_stats['giveaways']
         self.hits = team_stats['hits']
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
 
 
 class PeriodStats(object):
@@ -274,13 +269,29 @@ class PeriodStats(object):
         Model playoffs better.
     """
 
-    def __init__(self, periods=None, team_type=None):
+    def __init__(self, periods, team_type=None):
+        self.num_per = len(periods)
         self.first = Period()
         self.second = Period()
         self.third = Period()
         self.ot = Period()
+        self.total = 0
+
+        self._periods = [self.first, self.second, self.third, self.ot]
 
         self._set(periods, team_type)
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self):
+        if self.n < self.num_per:
+            result = self._periods[self.n]
+            self.n += 1
+            return result
+        else:
+            raise StopIteration
 
     # for ease of reference
     def update(self, periods, team_type):
@@ -289,19 +300,21 @@ class PeriodStats(object):
     def _set(self, periods, team_type):
         """Internal Use Only. The main code for setting/updating values"""
         for per in periods:
-            if per['num'] == 1:
-                self.first.goals = per[team_type]['goals']
-                self.first.shots = per[team_type]['shotsOnGoal']
-            elif per['num'] == 2:
-                self.second.goals = per[team_type]['goals']
-                self.second.shots = per[team_type]['shotsOnGoal']
-            elif per['num'] == 3:
-                self.third.goals = per[team_type]['goals']
-                self.third.shots = per[team_type]['shotsOnGoal']
+            if int(per['num']) == 1:
+                self.first.goals = int(per[team_type]['goals'])
+                self.first.shots = int(per[team_type]['shotsOnGoal'])
+            elif int(per['num']) == 2:
+                self.second.goals = int(per[team_type]['goals'])
+                self.second.shots = int(per[team_type]['shotsOnGoal'])
+            elif int(per['num']) == 3:
+                self.third.goals = int(per[team_type]['goals'])
+                self.third.shots = int(per[team_type]['shotsOnGoal'])
             # This needs to be fixed for playoffs.
             else:
-                self.ot.goals = per[team_type]['goals']
-                self.ot.shots = per[team_type]['shotsOnGoal']
+                self.ot.goals = int(per[team_type]['goals'])
+                self.ot.shots = int(per[team_type]['shotsOnGoal'])
+
+        self.total = sum([x.shots for x in self])
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'

@@ -12,8 +12,6 @@ include/
 bin/
 
 # Project
-**/scripts/**
+scripts/
 tests/
-.vscode
-
-*.txt
+.vscode/

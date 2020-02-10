@@ -3,7 +3,7 @@ import arrow
 
 
 from puck.utils import style
-from puck.GamesHandler import games_handler
+from puck.games_handler import games_handler
 
 
 class Config(object):
@@ -24,7 +24,7 @@ class MutuallyExclusiveOption(click.Option):
     https://stackoverflow.com/questions/37310718/mutually-exclusive-option-groups-in-python-click   # noqa
 
     Additional thanks to the Watson CLI program for help in adding the _exclusive_error function
-    https://github.com/TailorDev/Watson/blob/master/watson/cli.py 
+    https://github.com/TailorDev/Watson/blob/master/watson/cli.py
     """
 
     def __init__(self, *args, **kwargs):

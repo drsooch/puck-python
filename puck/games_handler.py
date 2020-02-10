@@ -2,7 +2,7 @@ import arrow
 import asyncio
 import click
 
-from .Games import BannerGame, FullGame, get_game_ids
+from .games import BannerGame, FullGame, get_game_ids
 from .urls import Url
 from .utils import request, batch_request_create, team_to_id
 

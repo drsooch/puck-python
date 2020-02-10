@@ -1,7 +1,7 @@
 import urwid
 import urwid.raw_display
 
-from puck.tui.PuckApp import PuckApp
+from puck.tui.puck_app import PuckApp
 
 
 if __name__ == "__main__":

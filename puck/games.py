@@ -2,7 +2,7 @@ import arrow
 
 from .urls import Url
 from .utils import GAME_STATUS, request
-from .Teams import FullStatsTeam, BannerTeam
+from .teams import FullStatsTeam, BannerTeam
 
 
 class GameIDException(Exception):
@@ -23,11 +23,17 @@ class BaseGame(object):
         self.home = None
         self.away = None
 
+    def __eq__(self, other):
+        return self.game_id == other.game_id
+
     def update(self):
         raise NotImplementedError()
 
+    def __repr__(self):
+        return f'{self.__class__} -> {self.__dict__}'
 
-class BannerGame(object):
+
+class BannerGame(BaseGame):
     """
     The generic Game Class. This class holds basic data about each game.
     Creation will fail if the game ID doesnt exist.
@@ -40,8 +46,7 @@ class BannerGame(object):
     """
 
     def __init__(self, game_id, game_info=None, team_class=BannerTeam):
-        self.game_id = game_id
-
+        super().__init__(game_id)
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
@@ -52,6 +57,9 @@ class BannerGame(object):
         self.start_time = arrow.get(
             game_info['gameData']['datetime']['dateTime']
         ).to('local').strftime('%I:%M %p %Z')
+        self.game_date = arrow.get(
+            game_info['gameData']['datetime']['dateTime']
+        ).to('local').date()
 
         if self.game_status in GAME_STATUS['Preview']:
             # if the game is in Preview keys won't exist
@@ -111,9 +119,6 @@ class BannerGame(object):
         # this will call update no matter the Team Class type
         self.home.update(game_info)
         self.away.update(game_info)
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
 
 
 class FullGame(BannerGame):

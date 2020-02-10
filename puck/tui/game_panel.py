@@ -4,8 +4,8 @@ import arrow
 from copy import copy
 from additional_urwid_widgets import DatePicker, MessageDialog
 from puck.utils import batch_request_create, batch_request_update
-from puck.Games import get_game_ids
-from puck.tui.tui_utils import gametime_text_widget, box_wrap
+from puck.games import get_game_ids
+from puck.tui.tui_utils import gametime_text_widget, box_wrap, HButton
 
 
 class GamePanel(urwid.WidgetWrap):
@@ -15,10 +15,13 @@ class GamePanel(urwid.WidgetWrap):
         widget = self._create_game_panel()
         super().__init__(widget)
 
+# -------------------------- Top Level Methods --------------------------#
     def _update_in_place(self, date):
         self._w = self._create_game_panel(date)
+        self.app._reload_topbar()
 
-    def _cycle_games(self, btn):
+# -------------------------- Button Methods --------------------------#
+    def cycle_games(self, btn):
         # when popping and pushing elements onto the widget and  hidden lists,
         # care must be taken to not pop buttons or insert before/after buttons
         wl = self._w.base_widget.contents[2][0].widget_list
@@ -45,11 +48,25 @@ class GamePanel(urwid.WidgetWrap):
             else:
                 pass
 
+    def change_date(self, btn, date):
+        def destroy():
+            self.app.loop.widget = self.app.frame
+
+        _ids = get_game_ids(params={'date': str(date.get_date())})
+        self.app.banner_games = asyncio.run(
+            batch_request_create(_ids, 'banner')
+        )
+        self.app.size = len(self.app.banner_games)
+        self.app._populate_hidden()
+        self._update_in_place(date)
+        destroy()
+
+# -------------------------- Helper Methods --------------------------#
     def _create_game_panel(self, date=None):
-        next_btn = urwid.Button(u'Next', on_press=self._cycle_games)
-        prev_btn = urwid.Button(u'Prev', on_press=self._cycle_games)
-        date_btn = urwid.Button(
-            u'Date', on_press=self.app._date_picker, user_data='panel'
+        next_btn = HButton(u'Next', on_press=self.cycle_games)
+        prev_btn = HButton(u'Prev', on_press=self.cycle_games)
+        date_btn = HButton(
+            u'Date', on_press=self.app._date_picker, user_data=self
         )
 
         if not date:
