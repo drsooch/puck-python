@@ -200,6 +200,9 @@ def _generate_url(url, url_mods):
     if Url.TEAMS == url:
         url = url.value.format(url_mods['team_id'])
 
+    if Url.PLAYERS == url:
+        url = url.value.format(url_mods['player_id'])
+
     return url
 
 

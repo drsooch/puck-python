@@ -1,8 +1,11 @@
 import arrow
+import asyncio
+
 
 from .urls import Url
-from .utils import GAME_STATUS, request
+from .utils import GAME_STATUS, request  # batch_request_update
 from .teams import FullStatsTeam, BannerTeam
+# from collections import UserList
 
 
 class GameIDException(Exception):
@@ -13,9 +16,6 @@ class GameIDException(Exception):
 class BaseGame(object):
     """The BaseGame class. This should only be used a parent class
         for user defined game classes.
-
-    NOTE: This class is not fully implemented and may never be. Currently
-        here for possibilities.
     """
 
     def __init__(self, game_id):
@@ -26,7 +26,7 @@ class BaseGame(object):
     def __eq__(self, other):
         return self.game_id == other.game_id
 
-    def update(self):
+    def update_data(self):
         raise NotImplementedError()
 
     def __repr__(self):
@@ -82,7 +82,7 @@ class BannerGame(BaseGame):
                 self.is_final = False
                 self.is_live = True
 
-    def update(self, game_info=None):
+    def update_data(self, game_info=None):
         """
         This class method updates a game object.
         """
@@ -117,8 +117,8 @@ class BannerGame(BaseGame):
         self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
 
         # this will call update no matter the Team Class type
-        self.home.update(game_info)
-        self.away.update(game_info)
+        self.home.update_data(game_info)
+        self.away.update_data(game_info)
 
 
 class FullGame(BannerGame):
@@ -135,8 +135,8 @@ class FullGame(BannerGame):
 
         super().__init__(game_id=game_id, game_info=game_info, team_class=FullStatsTeam)  # noqa
 
-    def update(self, game_info=None):
-        super().update(game_info)
+    def update_data(self, game_info=None):
+        super().update_data(game_info)
 
 
 def get_game_ids(url_mods=None, params=None):
@@ -161,3 +161,14 @@ def get_game_ids(url_mods=None, params=None):
             ids.append(game['gamePk'])
 
     return ids
+
+
+# class GamesCollection(UserList):
+    # def __init__(self, _ids, game_type):
+    # super().__init__(initlist)
+#
+    # def update_data(self):
+    # asyncio.run(batch_request_update(self.data))
+#
+    # def create(self)
+    # asyncio.run(batch_request_create(self.game_ids, game_type))

@@ -1,5 +1,6 @@
 from .urls import Url
 from .utils import GAME_STATUS, request
+from collections import UserDict, UserList
 
 
 class TeamIDException(Exception):
@@ -55,11 +56,14 @@ class BaseTeam(object):
         self.conference = team_data['conference']['name']
         self.team_url = team_data['officialSiteUrl']
 
+    def update_data(self):
+        raise NotImplementedError()
+
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
 
 
-class BannerTeam(BaseTeam):
+class BannerTeam(BaseTeam, UserDict):
     """Simple Team class for "banner" display.
 
     Attributes:
@@ -103,22 +107,29 @@ class BannerTeam(BaseTeam):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # call parent class constructor
-        super().__init__(game_info, team_type)
+        BaseTeam.__init__(self, game_info, team_type)
 
         self._game = game
         self.game_id = game_id
 
-        # the only data we need to track.
-        self.goals = game_info['liveData']['linescore']['teams'][team_type]['goals']  # noqa
+        # use UserDict as a parent class to match FullStatsTeam class
+        UserDict.__init__(
+            self,
+            {
+                'goals': game_info['liveData']['linescore']['teams'][team_type]['goals']  # noqa
+            }
+        )
 
-    def update(self, game_info=None):
+    def update_data(self, game_info=None):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.goals = game_info['liveData']['linescore']['teams'][self.team_type]['goals']  # noqa
+        self.update({
+            'goals': game_info['liveData']['linescore']['teams'][self.team_type]['goals']  # noqa
+        })
 
 
-class FullStatsTeam(BaseTeam):
+class FullStatsTeam(BaseTeam, UserDict):
     """
     This class is designed for use in conjuction with a FullGame object.
     Built upon the BaseTeam class, this class gathers stats relevant to
@@ -169,14 +180,17 @@ class FullStatsTeam(BaseTeam):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # Call the parent class constructor
-        super().__init__(game_info, team_type)
+        BaseTeam.__init__(self, game_info, team_type)
 
         # holds reference to the Game "container"
         self._game = game
         self.game_id = game_id
 
-        # invoke internal setter method
-        self._set(game_info)
+        # put the team skater stats into an internal dict object
+        UserDict.__init__(
+            self,
+            game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
+        )
 
         # PeriodStats object for easier referencing
         self.periods = PeriodStats(
@@ -194,7 +208,7 @@ class FullStatsTeam(BaseTeam):
 
         self.player_stats = None  # TODO: player stats.
 
-    def update(self, game_info=None):
+    def update_data(self, game_info=None):
         """Updates an object using fresh data.
 
         Args:
@@ -215,8 +229,11 @@ class FullStatsTeam(BaseTeam):
             # is the way it is
             return
 
-        self._set(game_info)
-        self.periods.update(
+        # calls UserDict update method for internal dict
+        self.update(
+            game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
+        )
+        self.periods.update_data(
             game_info['liveData']['linescore']['periods'],
             self.team_type
         )
@@ -225,30 +242,8 @@ class FullStatsTeam(BaseTeam):
             self.shootout.goals = game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores']  # noqa
             self.shootout.attempts = game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
 
-    def _set(self, game_info):
-        """Internal Use Only. The main code for setting/updating values"""
-        # shortened JSON paths
-        live_data = game_info['liveData']
-        team_stats = game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
 
-        # could just use team_data['teamStats']['teamSkaterStats']
-        # but choosing to make each an attribute
-        self.goals = team_stats['goals']
-        self.pims = team_stats['pim']
-        self.shots = team_stats['shots']
-        self.pp_pct = team_stats['powerPlayPercentage']
-        # I wanted to leave these as is and not change their type, but
-        # the json module reads them as floats
-        self.pp_goals = int(team_stats['powerPlayGoals'])
-        self.pp_att = int(team_stats['powerPlayOpportunities'])
-        self.faceoff_pct = team_stats['faceOffWinPercentage']
-        self.blocked_shots = team_stats['blocked']
-        self.takeaways = team_stats['takeaways']
-        self.giveaways = team_stats['giveaways']
-        self.hits = team_stats['hits']
-
-
-class PeriodStats(object):
+class PeriodStats(UserList):
     """
     Internal Use Only.
 
@@ -271,61 +266,55 @@ class PeriodStats(object):
 
     def __init__(self, periods, team_type=None):
         self.num_per = len(periods)
-        self.first = Period()
-        self.second = Period()
-        self.third = Period()
-        self.ot = Period()
-        self.total = 0
 
-        self._periods = [self.first, self.second, self.third, self.ot]
+        data = []
+        for i in range(self.num_per):
+            name = periods[i]['ordinalNum']
+            data.append(
+                Period(name, periods[i][team_type])
+            )
 
-        self._set(periods, team_type)
+        super().__init__(data)
 
-    def __iter__(self):
-        self.n = 0
-        return self
+        self.total_shots = sum([x['shotsOnGoal'] for x in self.data])
 
-    def __next__(self):
-        if self.n < self.num_per:
-            result = self._periods[self.n]
-            self.n += 1
-            return result
-        else:
-            raise StopIteration
+    def update_data(self, periods, team_type):
+        _range = len(periods)
+        old_count = self.num_per
 
-    # for ease of reference
-    def update(self, periods, team_type):
-        self._set(periods, team_type)
+        if self.num_per < _range:
+            self.num_per = _range
 
-    def _set(self, periods, team_type):
-        """Internal Use Only. The main code for setting/updating values"""
-        for per in periods:
-            if int(per['num']) == 1:
-                self.first.goals = int(per[team_type]['goals'])
-                self.first.shots = int(per[team_type]['shotsOnGoal'])
-            elif int(per['num']) == 2:
-                self.second.goals = int(per[team_type]['goals'])
-                self.second.shots = int(per[team_type]['shotsOnGoal'])
-            elif int(per['num']) == 3:
-                self.third.goals = int(per[team_type]['goals'])
-                self.third.shots = int(per[team_type]['shotsOnGoal'])
-            # This needs to be fixed for playoffs.
+        for i in range(self.num_per):
+            if i < old_count:
+                self.data[i].update_data(periods[i][team_type])
             else:
-                self.ot.goals = int(per[team_type]['goals'])
-                self.ot.shots = int(per[team_type]['shotsOnGoal'])
+                name = periods[i]['ordinalNum']
+                self.data.append(Period(name, periods[i][team_type]))
 
-        self.total = sum([x.shots for x in self])
+        self.total_shots = sum([x['shotsOnGoal'] for x in self.data])
+
+        pass
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
 
 
-class Period(object):
+class Period(UserDict):
     """Internal Use Only. Used for better accessing period stats."""
 
-    def __init__(self, goals=None, shots=None):
-        self.goals = goals
-        self.shots = shots
+    def __init__(self, name, data):
+        self.name = name
+        if data:
+            data.pop('rinkSide')
+        super().__init__(data)
+
+    def update_data(self, data):
+        if data:
+            data.pop('rinkSide')
+
+        # calls UserDict updates
+        self.update(data)
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'

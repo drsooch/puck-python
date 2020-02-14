@@ -14,14 +14,13 @@ from puck.tui.tui_utils import (
 from puck.utils import batch_request_create, batch_request_update
 
 BOX_STATS = [
-    ('Team', 'abbreviation'),
-    ('SOG', 'periods', 'total'),
-    ('PPG', 'pp_goals'),
-    ('PPA', 'pp_att'),
-    ('PP%', 'pp_pct'),
-    ('PIMS', 'pims'),
+    ('SOG', 'periods'),
+    ('PPG', 'powerPlayGoals'),
+    ('PPA', 'powerPlayOpportunities'),
+    ('PP%', 'powerPlayPercentage'),
+    ('PIMS', 'pim'),
     ('Hits', 'hits'),
-    ('FOW%', 'faceoff_pct')
+    ('FOW%', 'faceOffWinPercentage')
 ]
 
 
@@ -163,14 +162,14 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         home = urwid.Pile(
             [
                 urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home.goals), align='center')
+                urwid.Text(str(game.home['goals']), align='center')
             ]
         )
 
         away = urwid.Pile(
             [
                 urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away.goals), align='center')
+                urwid.Text(str(game.away['goals']), align='center')
             ]
         )
 
@@ -179,14 +178,23 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         game_card = urwid.Columns([away, time, home])
         game_card = urwid.LineBox(game_card)
 
-        box_score = []
+        box_score = [
+            urwid.Pile(
+                [
+                    urwid.Text(u'Team', 'center'),
+                    urwid.Text(game.home.abbreviation, 'center'),
+                    urwid.Text(game.away.abbreviation, 'center')
+                ]
+            )
+        ]
         for stat in BOX_STATS:
-            val_h = getattr(game.home, stat[1])
-            val_a = getattr(game.away, stat[1])
-
-            if len(stat) == 3:
-                val_h = getattr(val_h, stat[2])
-                val_a = getattr(val_a, stat[2])
+            # hard code this path b/c it requires one more step of indirection
+            if stat[1] == 'periods':
+                val_h = game.home.periods.total_shots
+                val_a = game.away.periods.total_shots
+            else:
+                val_h = game.home[stat[1]]
+                val_a = game.away[stat[1]]
 
             if stat[0] in ['FOW%', 'PP%']:
                 val_h += '%'
@@ -303,7 +311,7 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
                 )
                 if game.is_live or game.is_final:
                     game_status = urwid.Text(
-                        str(game.away.goals) + ' - ' + str(game.home.goals),
+                        str(game.away['goals']) + ' - ' + str(game.home['goals']),  # noqa
                         align='center'
                     )
                 else:

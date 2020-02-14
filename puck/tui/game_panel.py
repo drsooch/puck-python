@@ -116,14 +116,14 @@ class GamePanel(urwid.WidgetWrap):
         home = urwid.Pile(
             [
                 urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home.goals), align='center')
+                urwid.Text(str(game.home['goals']), align='center')
             ]
         )
 
         away = urwid.Pile(
             [
                 urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away.goals), align='center')
+                urwid.Text(str(game.away['goals']), align='center')
             ]
         )
 
