@@ -47,6 +47,9 @@ As mentioned previously, sizing is off so in instances where there are not many 
 
 ![Box Scores](imgs/PuckTUIboxscore.png)
 
+The TUI now uses an SQLite3 database internally. In order to track players attempting to query a full teams roster
+would take exceptionally long. The database also removes any issues if a connection error was undergone when querying these players.
+
 **Note:** Yes the color of the date box is gross. It's for testing purposes :).
 
 ## Install and Run
@@ -61,7 +64,7 @@ Create a Python virtual environment (3.7>)
 
 Place the source files in under a directory in `venv_dir` whatever that may be.
 
-Install any required modules
+Install any required modules.
 
 `pip3 install -r requirements.txt`
 
