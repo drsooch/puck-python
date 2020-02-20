@@ -12,8 +12,9 @@ class Url(Enum):
     """
 
     TEAMS = 'https://statsapi.web.nhl.com/api/v1/teams/{}'
-    SCHEDULE = 'https://statsapi.web.nhl.com/api/v1/schedule'
     TEAM_STATS = 'https://statsapi.web.nhl.com/api/v1/teams/{}/stats'
+    TEAM_ROSTER = 'https://statsapi.web.nhl.com/api/v1/teams/{}/roster'
+    SCHEDULE = 'https://statsapi.web.nhl.com/api/v1/schedule'
     RECORDS = 'https://records.nhl.com/site/api'
     GAME = 'https://statsapi.web.nhl.com/api/v1/game/{}/feed/live'
     STANDINGS = 'https://statsapi.web.nhl.com/api/v1/standings'

@@ -200,6 +200,11 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
                 val_h += '%'
                 val_a += '%'
 
+            # when read from JSON, these values operate as floats not ints
+            if stat[0] in ['PPG', 'PPA']:
+                val_h = int(val_h)
+                val_a = int(val_a)
+
             pile = urwid.Pile(
                 [
                     urwid.Text(stat[0], 'center'),
@@ -282,7 +287,7 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
         self._w = self.build_schedule()
 
     def next_page(self, btn):
-        """cycle to the previous week"""
+        """cycle to the next week"""
         self.current_week_start = self.current_week_start.shift(days=+7)
         self.current_week_end = self.current_week_end.shift(days=+7)
 

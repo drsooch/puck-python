@@ -59,19 +59,25 @@ Create a Python virtual environment (3.7>)
 
 `python3 -m venv venv_dir`
 
-Place the source files in `venv_dir` whatever that may be.
+Place the source files in under a directory in `venv_dir` whatever that may be.
 
 Install any required modules
 
 `pip3 install -r requirements.txt`
 
+The config file must be updated to point to the correct location. There is no setup.py script yet, so this must be done
+manually. I currently have `$PYTHONPATH` set in my environment to point to the root `venv_dir` folder.
+You can keep the config file as-is but you must set your `$PYTHONPATH` to point to the correct location.
+
 Finally, run it.
 
-`python3 puck/tui/app.py`
+`python3 puck/__main__.py`
 
-or
+On first setup the beginning database files and tables will be created. Please note, there is no excess logic to catch any database or connection issues
+so this may take a few attempts. (It usually fails on poor connection to the internet.)
 
-`python3 puck/cli.py`
+The `__main__.py` file will be the eventual executable. It currently only
+opens the TUI app, change the `if True:` to `False` to get the CLI
 
 Wait what's that? Python failed to import puck.whatever?
 This happened more times than I can count. My best answer, until I clean up the code,

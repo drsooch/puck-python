@@ -138,5 +138,6 @@ def games(ctx, team, today, yesterday, tomorrow, date, date_range):
     games_handler(ctx.obj, cmd_vals)
 
 
-if __name__ == "__main__":
+# enter cli
+def main():
     cli()

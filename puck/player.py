@@ -1,14 +1,12 @@
-from collections import UserList, UserDict
-from puck.utils import request
+from collections import UserDict, UserList
+
 from puck.urls import Url
+from puck.utils import request
 
 
 class BasePlayer(UserDict):
-    def __init__(self, player_id, data={}):
-
-        data.update(
-            request(Url.PLAYERS, {'player_id': player_id})['people'][0]
-        )
+    def __init__(self, db_conn, player_id, data={}):
+        self.db_conn = db_conn
 
         super().__init__(data)
 
@@ -20,17 +18,35 @@ class BasePlayer(UserDict):
 
 
 class GamePlayer(BasePlayer):
-    def __init__(self, player_id):
-        super().__init__(player_id, initialdata={})
+    def __init__(self, db_conn, player_id, data={}):
+        super().__init__(db_conn, player_id=player_id, data=data)
+
+    def update_data(self, data):
+        self.update(data)
 
 
 class FullPlayer(BasePlayer):
-    def __init__(self, player_id, initialdata={}):
-        super().__init__(player_id, initialdata=initialdata)
+    def __init__(self, db_conn, player_id, data={}):
+        super().__init__(db_conn, player_id=player_id, data=data)
+
+    def update_data(self, data):
+        self.update(data)
 
 
 class PlayerCollection(UserList):
-    def __init__(self, initlist=None):
+    def __init__(self, db_conn, initlist=[], id_list=None, player_type=BasePlayer):  # noqa
+        self.db_conn = db_conn
+        
+        if initlist:
+            for i in initlist:
+                if not isinstance(i, BasePlayer):
+                    raise ValueError(
+                        'The initial list provided contained an invalid type, \
+                    requires a subclass of BasePlayer'
+                    )
+        else:
+            initlist = [player_type(db_conn, _id) for _id in id_list]
+
         super().__init__(initlist)
 
 

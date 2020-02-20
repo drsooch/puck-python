@@ -1,6 +1,8 @@
+from collections import UserDict, UserList
+
 from .urls import Url
 from .utils import GAME_STATUS, request
-from collections import UserDict, UserList
+from .player import GamePlayer, PlayerCollection
 
 
 class TeamIDException(Exception):
@@ -206,7 +208,7 @@ class FullStatsTeam(BaseTeam, UserDict):
         else:
             self.shootout = ShootoutStats()
 
-        self.player_stats = None  # TODO: player stats.
+        # self.player_stats = PlayerCollection()
 
     def update_data(self, game_info=None):
         """Updates an object using fresh data.
@@ -306,13 +308,14 @@ class Period(UserDict):
     def __init__(self, name, data):
         self.name = name
         if data:
-            data.pop('rinkSide')
+            # for some reason sometimes rinkSide not valid key?
+            data.pop('rinkSide', None)
+
         super().__init__(data)
 
     def update_data(self, data):
         if data:
-            data.pop('rinkSide')
-
+            data.pop('rinkSide', None)
         # calls UserDict updates
         self.update(data)
 

@@ -9,6 +9,7 @@ from puck.games import get_game_ids
 from puck.utils import batch_request_create, batch_request_update
 from puck.tui.game_panel import GamePanel
 from puck.tui.game_context import GamesContext
+from puck.database.db import connect_db
 
 VERSION = '0.1'
 ROW_SPACE = 6
@@ -28,6 +29,8 @@ def exit_handler(btn=None):
 
 class PuckApp(object):
     def __init__(self):
+        self.db_conn = connect_db()
+
         _ids = get_game_ids()
         self.size = len(_ids)
         self.banner_games = asyncio.run(batch_request_create(_ids, 'banner'))

@@ -14,6 +14,10 @@ class TeamException(Exception):
     pass
 
 
+class ConfigError(Exception):
+    pass
+
+
 GAME_STATUS = {
     'Preview': [1, 2, 8, 9],
     'Final': [5, 6, 7],
@@ -109,6 +113,28 @@ def request(url, url_mods=None, params=None):
         print(e)
 
 
+async def async_request(url, session, url_mods=None, params=None):
+    """Base async request for polling one endpoint.
+
+    Args:
+        url (Url): Url to query
+        session (ClientSession): AIOHTTP ClientSession Object
+        url_mods (dict, optional): dict of format strings. Defaults to None.
+        params (dict, optional): Url parameters. Defaults to None.
+
+    Returns:
+        dict: dict object representing a JSON response
+    """
+    if url_mods:
+        _url = _generate_url(url, url_mods)
+    else:
+        _url = url.value
+
+    async with session.request(method='GET', url=_url, params=params) as resp:  # noqa
+        data = await resp.json()
+        return data
+
+
 async def batch_request_create(game_ids, class_type):
     """Batch creation for Game objects. This drastically improves performance
         when creating multiple game objects.
@@ -135,11 +161,7 @@ async def batch_request_create(game_ids, class_type):
 
 
 async def batch_request_update(games):
-    """Batch update for Game objects.
-
-    Args:
-        games (List of BaseGame): List of BaseGame objects to update
-    """
+    """Batch update for Game objects."""
     async with aiohttp.ClientSession() as session:
         workers = []
         for game in games:
@@ -151,6 +173,7 @@ async def batch_request_update(games):
 
 
 async def _create_game(url, _id, class_type, session):
+    """Internal wrapper to create a Game Object"""
     url = _generate_url(url, {'game_id': _id})
     resp = await session.request(method='GET', url=url)
     json = await resp.json()
@@ -166,6 +189,7 @@ async def _create_game(url, _id, class_type, session):
 
 
 async def _update_game(url, game, session):
+    """Internal wrapper to update a Game object"""
     url = _generate_url(url, {'game_id': game.game_id})
     resp = await session.request(method='GET', url=url)
     json = await resp.json()
@@ -186,7 +210,7 @@ async def _init_banner(_id, json):
 
 
 async def _update_wrapper(game, json):
-    game.update(json)
+    game.update_data(json)
 
 
 def _generate_url(url, url_mods):
@@ -194,15 +218,20 @@ def _generate_url(url, url_mods):
     Takes a url and url modifications and creates a full Url
     Used to create a url with unique values (ie. Team, ID, etc.)
     """
-    if Url.GAME == url:
-        url = url.value.format(url_mods['game_id'])
-
-    if Url.TEAMS == url:
-        url = url.value.format(url_mods['team_id'])
-
-    if Url.PLAYERS == url:
-        url = url.value.format(url_mods['player_id'])
-
+    try:
+        if Url.GAME == url:
+            url = url.value.format(url_mods['game_id'])
+        elif Url.TEAMS == url:
+            url = url.value.format(url_mods['team_id'])
+        elif Url.TEAM_ROSTER == url:
+            url = url.value.format(url_mods['team_id'])
+        elif Url.PLAYERS == url:
+            url = url.value.format(url_mods['player_id'])
+    except KeyError as err:
+        raise URLException(
+            f'Url modifications did not contain the valid format string.\n\
+             Got: {url_mods}'
+        )
     return url
 
 
