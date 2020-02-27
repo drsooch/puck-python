@@ -3,9 +3,10 @@ import asyncio
 
 
 from .urls import Url
-from .utils import GAME_STATUS, request  # batch_request_update
+from .utils import request
 from .teams import FullStatsTeam, BannerTeam
-# from collections import UserList
+import puck.parser as parser
+import puck.constants as const
 
 
 class GameIDException(Exception):
@@ -18,16 +19,17 @@ class BaseGame(object):
         for user defined game classes.
     """
 
-    def __init__(self, game_id):
+    def __init__(self, db_conn, game_id):
+        self.db_conn = db_conn
         self.game_id = game_id
         self.home = None
         self.away = None
 
-    def __eq__(self, other):
-        return self.game_id == other.game_id
-
     def update_data(self):
         raise NotImplementedError()
+
+    def __eq__(self, other):
+        return self.game_id == other.game_id
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
@@ -45,59 +47,39 @@ class BannerGame(BaseGame):
     TODO: Write up documentation.
     """
 
-    def __init__(self, game_id, game_info=None, team_class=BannerTeam):
-        super().__init__(game_id)
-        if not game_info:
-            game_info = request(Url.GAME, url_mods={'game_id': game_id})
+    def __init__(self, db_conn, game_id, data=None, _class=BannerTeam):
+        super().__init__(db_conn, game_id)
 
-        self.home = team_class(self, game_id, 'home', game_info)
-        self.away = team_class(self, game_id, 'away', game_info)
+        if not data:
+            data = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.game_status = int(game_info['gameData']['status']['statusCode'])
-        self.start_time = arrow.get(
-            game_info['gameData']['datetime']['dateTime']
-        ).to('local').strftime('%I:%M %p %Z')
-        self.game_date = arrow.get(
-            game_info['gameData']['datetime']['dateTime']
-        ).to('local').date()
+        parsed_data = parser.game_parser(data)
 
-        if self.game_status in GAME_STATUS['Preview']:
-            # if the game is in Preview keys won't exist
-            self.period = None
-            self.time = None
-            self.in_intermission = False
-            self.is_live = False
-            self.is_final = False
-            self.is_preview = True
-        else:
-            self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']  # noqa
-            self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
-            self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
-            self.is_preview = False
+        for key, val in parsed_data.items():
+            setattr(self, key, val)
 
-            if self.game_status in GAME_STATUS['Final']:
-                self.is_final = True
-                self.is_live = False
-            else:
-                self.is_final = False
-                self.is_live = True
+        self.home = _class(self, game_id, 'home', data)
+        self.away = _class(self, game_id, 'away', data)
 
-    def update_data(self, game_info=None):
+    def update_data(self, data=None):
         """
         This class method updates a game object.
+
+        NOTE: Does not use game_parser as we only need to update small
+        subset of data.
         """
 
         # If the game is already finished, no need to request info
         if self.is_final:
             return
 
-        if not game_info:
-            game_info = request(Url.GAME, url_mods={'game_id': self.game_id})
+        if not data:
+            data = request(Url.GAME, url_mods={'game_id': self.game_id})
 
-        _status_code = int(game_info['gameData']['status']['statusCode'])
+        _status_code = int(data['gameData']['status']['statusCode'])
 
         # game status hasn't changed
-        if _status_code in GAME_STATUS['Preview'] and self.is_preview:  # noqa
+        if _status_code in const.GAME_STATUS['Preview'] and self.is_preview:  # noqa
             self.game_status = _status_code
             return
         else:
@@ -105,20 +87,20 @@ class BannerGame(BaseGame):
             self.game_status = _status_code
             self.is_preview = False
 
-            if self.game_status in GAME_STATUS['Final']:
+            if self.game_status in const.GAME_STATUS['Final']:
                 self.is_final = True
                 self.is_live = False
             else:
                 self.is_live = True
 
         # only these values need to be updated
-        self.period = game_info['liveData']['linescore']['currentPeriodOrdinal']  # noqa
-        self.time = game_info['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
-        self.in_intermission = game_info['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
+        self.period = data['liveData']['linescore']['currentPeriodOrdinal']  # noqa
+        self.time = data['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
+        self.in_intermission = data['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
 
         # this will call update no matter the Team Class type
-        self.home.update_data(game_info)
-        self.away.update_data(game_info)
+        self.home.update_data(data)
+        self.away.update_data(data)
 
 
 class FullGame(BannerGame):
@@ -129,14 +111,14 @@ class FullGame(BannerGame):
 
     """
 
-    def __init__(self, game_id, game_info=None):
-        if not game_info:
-            game_info = request(Url.GAME, url_mods={'game_id': game_id})
+    def __init__(self, db_conn, game_id, data=None):
+        if not data:
+            data = request(Url.GAME, url_mods={'game_id': game_id})
 
-        super().__init__(game_id=game_id, game_info=game_info, team_class=FullStatsTeam)  # noqa
+        super().__init__(db_conn=db_conn, game_id=game_id, data=data, _class=FullStatsTeam)  # noqa
 
-    def update_data(self, game_info=None):
-        super().update_data(game_info)
+    def update_data(self, data=None):
+        super().update_data(data)
 
 
 def get_game_ids(url_mods=None, params=None):

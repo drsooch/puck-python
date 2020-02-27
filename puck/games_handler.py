@@ -4,7 +4,7 @@ import click
 
 from .games import BannerGame, FullGame, get_game_ids
 from .urls import Url
-from .utils import request, batch_request_create, team_to_id
+from .utils import request, batch_game_create, team_to_id
 
 
 def games_handler(config, cmd_vals):
@@ -44,7 +44,7 @@ def games_handler(config, cmd_vals):
     if config.verbose:
         verbose_games_echo()
     else:
-        normal_games_echo(cmd_vals)
+        normal_games_echo(config.conn, cmd_vals)
 
 
 def _yesterday(cmd_vals):
@@ -127,10 +127,13 @@ def verbose_games_echo(games):
     pass
 
 
-def normal_games_echo(params=None):
+def normal_games_echo(db_conn, params=None):
     game_ids = get_game_ids(params=params)
 
-    games_list = asyncio.run(batch_request_create(game_ids, 'banner'))
+    games_list = asyncio.run(
+        batch_game_create(game_ids, 'banner', db_conn)
+    )
+
     build_norm_output(games_list)
 
 

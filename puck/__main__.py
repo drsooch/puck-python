@@ -1,10 +1,12 @@
 #! /usr/bin/env python3.7
-import sys
-import os
-from pathlib import Path
 import json
+import os
+import sys
+from pathlib import Path
+
 from puck.database.db import connect_db
 from puck.utils import ConfigError
+
 
 PYTHONPATH = os.environ['PYTHONPATH']
 

@@ -22,7 +22,7 @@ class Url(Enum):
     PLAYER_STATS = 'https://statsapi.web.nhl.com/api/v1/people/{}/stats'
 
     @staticmethod
-    def appendable():
+    def formattable():
         """
         Returns list of Urls that can/require the insertion of IDs or other
         extensions to the url.
@@ -32,6 +32,6 @@ class Url(Enum):
         """
 
         return [
-            Url.TEAMS, Url.TEAM_STATS, Url.RECORDS,
-            Url.GAME, Url.STANDINGS, Url.PLAYERS, Url.PLAYER_STATS
+            Url.TEAMS, Url.TEAM_STATS, Url.TEAM_ROSTER,
+            Url.GAME, Url.PLAYERS, Url.PLAYER_STATS
         ]

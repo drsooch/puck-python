@@ -6,7 +6,7 @@ import urwid
 import urwid.raw_display
 from additional_urwid_widgets import DatePicker, MessageDialog
 from puck.games import get_game_ids
-from puck.utils import batch_request_create, batch_request_update
+from puck.utils import batch_game_create, batch_game_update
 from puck.tui.game_panel import GamePanel
 from puck.tui.game_context import GamesContext
 from puck.database.db import connect_db
@@ -33,7 +33,9 @@ class PuckApp(object):
 
         _ids = get_game_ids()
         self.size = len(_ids)
-        self.banner_games = asyncio.run(batch_request_create(_ids, 'banner'))
+        self.banner_games = asyncio.run(
+            batch_game_create(_ids, 'banner', self.db_conn)
+        )
 
         # sizing
         self.screen = urwid.raw_display.Screen()
@@ -83,7 +85,7 @@ class PuckApp(object):
         self.loop.run()
 
     def update(self):
-        asyncio.run(batch_request_update(self.banner_games))
+        asyncio.run(batch_game_update(self.banner_games))
 
     # -------------------------- Button Methods --------------------------#
     def destroy(self, btn=None):

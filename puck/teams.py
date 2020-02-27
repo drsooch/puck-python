@@ -1,8 +1,12 @@
 from collections import UserDict, UserList
 
 from .urls import Url
-from .utils import GAME_STATUS, request
+from .utils import request
 from .player import GamePlayer, PlayerCollection
+import puck.parser as parser
+from puck.database.db import select_stmt
+import puck.database.db_constants as db_const
+import puck.constants as const
 
 
 class TeamIDException(Exception):
@@ -17,46 +21,39 @@ class InvalidTeamType(Exception):
 
 class BaseTeam(object):
     """
-    BaseTeam object holds all data retrieved from api_endpoint/teams/{ID}
-    NOTE: The current implementation does not retrieve from the endpoint above.
+    BaseTeam object holds all data retrieved from the internal database
         Must pass the data directly to the object.
 
     Attributes:
         team_id (int): API ID number for a team
-        long_name (str): A team's full name
+        full_name (str): A team's full name
         abbreviation (str): 3-Letter team abbreviation
-        division (str): Full name of a team's division
-        conference (str): Full name of a team's conference
-        team_url (str): A team's home page url
+        division (int): Integer denoting a team's division
+        conference (int): Integer denoting a team's conference
 
     Raises:
         InvalidTeamType: Creation fails when an invalid team type is passed
     """
 
-    def __init__(self, team_data, team_type):
+    def __init__(self, team_id, db_conn):
         """Constructor for BaseTeam.
 
         Args:
             team_id (int): API ID number for a team
-            team_type (str): Either "home" or "away"
-
+            db_conn (sqlite3.Connection): Connection object to the database
         Raises:
             InvalidTeamType
         """
-        team_type = team_type.lower()
 
-        if team_type != 'home' and team_type != 'away':
-            raise InvalidTeamType
+        # get data from internal database
+        team_data = select_stmt(
+            db_conn, 'team', db_const.TableColumns.BASE_GAME_COLS,
+            where=[('team_id', team_id)]
+        )
 
-        # shortens the json "tree"
-        team_data = team_data['gameData']['teams'][team_type]
-
-        self.team_id = team_data['id']
-        self.long_name = team_data['name']
-        self.abbreviation = team_data['abbreviation']
-        self.division = team_data['division']['name']
-        self.conference = team_data['conference']['name']
-        self.team_url = team_data['officialSiteUrl']
+        # create attributes
+        for key in team_data[0].keys():
+            setattr(self, key, team_data[0][key])
 
     def update_data(self):
         raise NotImplementedError()
@@ -65,14 +62,13 @@ class BaseTeam(object):
         return f'{self.__class__} -> {self.__dict__}'
 
 
-class BannerTeam(BaseTeam, UserDict):
+class BannerTeam(BaseTeam):
     """Simple Team class for "banner" display.
 
     Attributes:
         goals (int): a team's goals
         team_type (str): "home" or "away"
-        _game (Game): Any object that inherits a game type.
-            The parent container that holds reference to this object.
+        _game (Game): The parent container that holds reference to this object.
 
     Raises:
         InvalidTeamType: If 'home' or 'away' is not supplied
@@ -109,29 +105,39 @@ class BannerTeam(BaseTeam, UserDict):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # call parent class constructor
-        BaseTeam.__init__(self, game_info, team_type)
+        super().__init__(team_id, game.db_conn)
 
         self._game = game
         self.game_id = game_id
 
-        # use UserDict as a parent class to match FullStatsTeam class
-        UserDict.__init__(
-            self,
-            {
-                'goals': game_info['liveData']['linescore']['teams'][team_type]['goals']  # noqa
-            }
+        # parse the game data
+        parsed_data = parser.teams_skater_stats_parser(
+            game_info, self.team_type, False
         )
+
+        # set attributes (goals in this case)
+        for key, val in parsed_data.items():
+            setattr(self, key, val)
 
     def update_data(self, game_info=None):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        self.update({
-            'goals': game_info['liveData']['linescore']['teams'][self.team_type]['goals']  # noqa
-        })
+        parsed_data = parser.teams_skater_stats_parser(
+            game_info, self.team_type, False
+        )
+
+        for key, val in parsed_data.items():
+            if hasattr(self, key):
+                setattr(self, key, val)
+            else:
+                raise AttributeError(
+                    f'Update received an attribute {key} \
+                    that has not been set.'
+                )
 
 
-class FullStatsTeam(BaseTeam, UserDict):
+class FullStatsTeam(BaseTeam):
     """
     This class is designed for use in conjuction with a FullGame object.
     Built upon the BaseTeam class, this class gathers stats relevant to
@@ -182,17 +188,20 @@ class FullStatsTeam(BaseTeam, UserDict):
         team_id = game_info['gameData']['teams'][team_type]['id']
 
         # Call the parent class constructor
-        BaseTeam.__init__(self, game_info, team_type)
+        super().__init__(team_id, game.db_conn)
 
         # holds reference to the Game "container"
         self._game = game
         self.game_id = game_id
 
-        # put the team skater stats into an internal dict object
-        UserDict.__init__(
-            self,
-            game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
+        # parse the data
+        parsed_data = parser.teams_skater_stats_parser(
+            game_info, self.team_type, True
         )
+
+        # set attributes
+        for key, val in parsed_data.items():
+            setattr(self, key, val)
 
         # PeriodStats object for easier referencing
         self.periods = PeriodStats(
@@ -208,7 +217,13 @@ class FullStatsTeam(BaseTeam, UserDict):
         else:
             self.shootout = ShootoutStats()
 
-        # self.player_stats = PlayerCollection()
+        id_list = game_info['liveData']['boxscore']['teams'][team_type]['goalies']  # noqa
+        id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['skaters'])  # noqa
+        id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['scratches'])  # noqa
+
+        self.player_stats = PlayerCollection(
+            self, game.db_conn, id_list, _class=GamePlayer
+        )
 
     def update_data(self, game_info=None):
         """Updates an object using fresh data.
@@ -225,16 +240,22 @@ class FullStatsTeam(BaseTeam, UserDict):
 
         # NOTE: This check could fail if the game status code
         #       is updated before this.
-        if _status_code in GAME_STATUS['Preview'] and self._game.game_status in GAME_STATUS['Preview']:  # noqa
-            # end update early as game is still in preview
-            # see BannerGame.update() on discussion for why this check
-            # is the way it is
+        if _status_code in const.GAME_STATUS['Preview'] and self._game.game_status in const.GAME_STATUS['Preview']:  # noqa
             return
 
-        # calls UserDict update method for internal dict
-        self.update(
-            game_info['liveData']['boxscore']['teams'][self.team_type]['teamStats']['teamSkaterStats']  # noqa
+        parsed_data = parser.teams_skater_stats_parser(
+            game_info, self.team_type, True
         )
+
+        for key, val in parsed_data.items():
+            if hasattr(self, key):
+                setattr(self, key, val)
+            else:
+                raise AttributeError(
+                    f'Update received an attribute {key} \
+                    that has not been set.'
+                )
+
         self.periods.update_data(
             game_info['liveData']['linescore']['periods'],
             self.team_type
@@ -266,7 +287,7 @@ class PeriodStats(UserList):
         Model playoffs better.
     """
 
-    def __init__(self, periods, team_type=None):
+    def __init__(self, periods, team_type):
         self.num_per = len(periods)
 
         data = []
@@ -278,7 +299,7 @@ class PeriodStats(UserList):
 
         super().__init__(data)
 
-        self.total_shots = sum([x['shotsOnGoal'] for x in self.data])
+        self.total_shots = sum([x.shots for x in self.data])
 
     def update_data(self, periods, team_type):
         _range = len(periods)
@@ -294,30 +315,34 @@ class PeriodStats(UserList):
                 name = periods[i]['ordinalNum']
                 self.data.append(Period(name, periods[i][team_type]))
 
-        self.total_shots = sum([x['shotsOnGoal'] for x in self.data])
-
-        pass
+        self.total_shots = sum([x.shots for x in self.data])
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
 
 
-class Period(UserDict):
+class Period(object):
     """Internal Use Only. Used for better accessing period stats."""
 
     def __init__(self, name, data):
         self.name = name
-        if data:
-            # for some reason sometimes rinkSide not valid key?
-            data.pop('rinkSide', None)
 
-        super().__init__(data)
+        parsed_data = parser.period_parser(data)
+
+        for key, val in parsed_data.items():
+            setattr(self, key, val)
 
     def update_data(self, data):
-        if data:
-            data.pop('rinkSide', None)
-        # calls UserDict updates
-        self.update(data)
+        parsed_data = parser.period_parser(data)
+
+        for key, val in parsed_data.items():
+            if hasattr(self, key):
+                setattr(self, key, val)
+            else:
+                AttributeError(
+                    f'Period update received an attribute {key} \
+                    that has not been set.'
+                )
 
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'

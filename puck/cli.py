@@ -4,6 +4,7 @@ import arrow
 
 from puck.utils import style
 from puck.games_handler import games_handler
+from puck.database.db import connect_db
 
 
 class Config(object):
@@ -11,9 +12,10 @@ class Config(object):
     Holds all top level options
     """
 
-    def __init__(self, verbose=False, output_file=None):
+    def __init__(self, conn, verbose=False, output_file=None):
         self.verbose = verbose
         self.output_file = output_file
+        self.conn = conn
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -95,7 +97,8 @@ File = click.File()
 )
 @click.pass_context
 def cli(ctx, verbose, output_file):
-    ctx.obj = Config(verbose, output_file)
+    conn = connect_db()
+    ctx.obj = Config(conn, verbose, output_file)
 
 
 @cli.command()

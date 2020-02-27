@@ -7,6 +7,9 @@ import arrow
 import click
 import requests
 
+import puck.parser as parser
+from puck.dispatcher import Dispatch
+
 from .urls import Url, URLException
 
 
@@ -16,68 +19,6 @@ class TeamException(Exception):
 
 class ConfigError(Exception):
     pass
-
-
-GAME_STATUS = {
-    'Preview': [1, 2, 8, 9],
-    'Final': [5, 6, 7],
-    'Live': [3, 4]
-}
-# GAME_D_STATUS = {
-#     'Preview': 1,
-#     'Pre-Game': 2,
-#     'Live': [3, 4],
-#     'Final': [6, 7]
-# }
-
-_TEAM_ID = {
-    'NJD': 1, 'NYI': 2, 'NYR': 3, 'PHI': 4,
-    'PIT': 5, 'BOS': 6, 'BUF': 7, 'MTL': 8,
-    'OTT': 9, 'TOR': 10, 'CAR': 12, 'FLA': 13,
-    'TBL': 14, 'WSH': 15, 'CHI': 16, 'DET': 17,
-    'NSH': 18, 'STL': 19, 'CGY': 20, 'COL': 21,
-    'EDM': 22, 'VAN': 23, 'ANA': 24, 'DAL': 25,
-    'LAK': 26, 'SJS': 28, 'CBJ': 29, 'MIN': 30,
-    'WPG': 52, 'ARI': 53, 'VGK': 54
-}
-
-_TEAM_SL = {
-    'NJD': 'New Jersey Devils', 'NYI': 'New York Islanders',
-    'NYR': 'New York Rangers', 'PHI': 'Philadelphia Flyers',
-    'PIT': 'Pittsburgh Penguins', 'BOS': 'Boston Bruins',
-    'BUF': 'Buffalo Sabres', 'MTL': 'Montréal Canadiens',
-    'OTT': 'Ottawa Senators', 'TOR': 'Toronto Maple Leafs',
-    'CAR': 'Carolina Hurricanes', 'FLA': 'Florida Panthers',
-    'TBL': 'Tampa Bay Lightning', 'WSH': 'Washington Capitals',
-    'CHI': 'Chicago Blackhawks', 'DET': 'Detroit Red Wings',
-    'NSH': 'Nashville Predators', 'STL': 'St. Louis Blues',
-    'CGY': 'Calgary Flames', 'COL': 'Colorado Avalanche',
-    'EDM': 'Edmonton Oilers', 'VAN': 'Vancouver Canucks',
-    'ANA': 'Anaheim Ducks', 'DAL': 'Dallas Stars',
-    'LAK': 'Los Angeles Kings', 'SJS': 'San Jose Sharks',
-    'CBJ': 'Columbus Blue Jackets', 'MIN': 'Minnesota Wild',
-    'WPG': 'Winnipeg Jets', 'ARI': 'Arizona Coyotes',
-    'VGK': 'Vegas Golden Knights'
-}
-
-_TEAM_LS = {
-    'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI',
-    'New York Rangers': 'NYR', 'Philadelphia Flyers': 'PHI',
-    'Pittsburgh Penguins': 'PIT', 'Boston Bruins': 'BOS',
-    'Buffalo Sabres': 'BUF', 'Montréal Canadiens': 'MTL',
-    'Ottawa Senators': 'OTT', 'Toronto Maple Leafs': 'TOR',
-    'Carolina Hurricanes': 'CAR', 'Florida Panthers': 'FLA',
-    'Tampa Bay Lightning': 'TBL', 'Washington Capitals': 'WSH',
-    'Chicago Blackhawks': 'CHI', 'Detroit Red Wings': 'DET',
-    'Nashville Predators': 'NSH', 'St. Louis Blues': 'STL',
-    'Calgary Flames': 'CGY', 'Colorado Avalanche': 'COL',
-    'Edmonton Oilers': 'EDM', 'Vancouver Canucks': 'VAN',
-    'Anaheim Ducks': 'ANA', 'Dallas Stars': 'DAL',
-    'Los Angeles Kings': 'LAK', 'San Jose Sharks': 'SJS',
-    'Columbus Blue Jackets': 'CBJ', 'Minnesota Wild': 'MIN',
-    'Winnipeg Jets': 'WPG', 'Arizona Coyotes': 'ARI',
-    'Vegas Golden Knights': 'VGK'
-}
 
 
 def request(url, url_mods=None, params=None):
@@ -113,54 +54,59 @@ def request(url, url_mods=None, params=None):
         print(e)
 
 
-async def async_request(url, session, url_mods=None, params=None):
+async def async_request(url, session, url_mods=None, params=None) -> dict:  # noqa
     """Base async request for polling one endpoint.
 
     Args:
         url (Url): Url to query
         session (ClientSession): AIOHTTP ClientSession Object
-        url_mods (dict, optional): dict of format strings. Defaults to None.
-        params (dict, optional): Url parameters. Defaults to None.
+        url_mods (dict): modifications to the Url passed
+        params (dict): url parameters for the Url passed
+
+    Kwargs:
+        kwargs to be passed to the function supplied
 
     Returns:
-        dict: dict object representing a JSON response
+        dict or None: dict object representing a JSON response
     """
     if url_mods:
-        _url = _generate_url(url, url_mods)
+        url = _generate_url(url, url_mods)
     else:
-        _url = url.value
+        url = url.value
 
-    async with session.request(method='GET', url=_url, params=params) as resp:  # noqa
+    async with session.request(method='GET', url=url, params=params) as resp:  # noqa
         data = await resp.json()
+
         return data
 
 
-async def batch_request_create(game_ids, class_type):
+async def batch_game_create(game_ids, class_type, db_conn) -> list:
     """Batch creation for Game objects. This drastically improves performance
         when creating multiple game objects.
 
     Args:
+        db_conn (sqlite3.Connection): Database connection
         game_ids (List of Ints): List of game ids to create game objects
         class_type (BaseGame): Game object type to create.
     Raises:
         URLException: NotImplemented
 
     Returns:
-        [dict]: A list of game objects containing the json responses of
+        dict: A list of game objects containing the json responses of
                 each query.
     """
     async with aiohttp.ClientSession() as session:
         workers = []
         for _id in game_ids:
             workers.append(
-                _create_game(Url.GAME, _id, class_type, session)
+                _create_game(Url.GAME, _id, class_type, session, db_conn)
             )
 
         games = await asyncio.gather(*workers)
     return games
 
 
-async def batch_request_update(games):
+async def batch_game_update(games):
     """Batch update for Game objects."""
     async with aiohttp.ClientSession() as session:
         workers = []
@@ -172,16 +118,16 @@ async def batch_request_update(games):
         await asyncio.gather(*workers)
 
 
-async def _create_game(url, _id, class_type, session):
+async def _create_game(url, _id, class_type, session, db_conn):
     """Internal wrapper to create a Game Object"""
-    url = _generate_url(url, {'game_id': _id})
-    resp = await session.request(method='GET', url=url)
-    json = await resp.json()
+    json = await async_request(url, session, url_mods={'game_id': _id})
 
     if class_type == 'full':
-        game = await _init_full(_id, json)
+        from .games import FullGame
+        game = FullGame(db_conn, _id, json)
     elif class_type == 'banner':
-        game = await _init_banner(_id, json)
+        from .games import BannerGame
+        game = BannerGame(db_conn, _id, json)
     else:
         raise ValueError(f'{class_type} is not a valid game type.')
 
@@ -190,26 +136,8 @@ async def _create_game(url, _id, class_type, session):
 
 async def _update_game(url, game, session):
     """Internal wrapper to update a Game object"""
-    url = _generate_url(url, {'game_id': game.game_id})
-    resp = await session.request(method='GET', url=url)
-    json = await resp.json()
+    json = await async_request(url, session, url_mods={'game_id': game.game_id})  # noqa
 
-    await _update_wrapper(game, json)
-
-
-async def _init_full(_id, json):
-    # This import is here to block a circular import
-    # TODO: Restructure modules?
-    from .games import FullGame
-    return FullGame(_id, json)
-
-
-async def _init_banner(_id, json):
-    from .games import BannerGame
-    return BannerGame(_id, json)
-
-
-async def _update_wrapper(game, json):
     game.update_data(json)
 
 

@@ -3,7 +3,7 @@ import asyncio
 import arrow
 from copy import copy
 from additional_urwid_widgets import DatePicker, MessageDialog
-from puck.utils import batch_request_create, batch_request_update
+from puck.utils import batch_game_create, batch_game_update
 from puck.games import get_game_ids
 from puck.tui.tui_utils import gametime_text_widget, box_wrap, HButton
 
@@ -54,7 +54,7 @@ class GamePanel(urwid.WidgetWrap):
 
         _ids = get_game_ids(params={'date': str(date.get_date())})
         self.app.banner_games = asyncio.run(
-            batch_request_create(_ids, 'banner')
+            batch_game_create(_ids, 'banner', self.app.db_conn)
         )
         self.app.size = len(self.app.banner_games)
         self.app._populate_hidden()
@@ -62,7 +62,7 @@ class GamePanel(urwid.WidgetWrap):
         destroy()
 
 # -------------------------- Helper Methods --------------------------#
-    def _create_game_panel(self, date=None):
+    def _create_game_panel(self, date=None) -> urwid.LineBox:
         next_btn = HButton(u'Next', on_press=self.cycle_games)
         prev_btn = HButton(u'Prev', on_press=self.cycle_games)
         date_btn = HButton(
@@ -112,18 +112,18 @@ class GamePanel(urwid.WidgetWrap):
 
         return urwid.LineBox(box)
 
-    def _create_game_card(self, game):
+    def _create_game_card(self, game) -> urwid.LineBox:
         home = urwid.Pile(
             [
                 urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home['goals']), align='center')
+                urwid.Text(str(game.home.goals), align='center')
             ]
         )
 
         away = urwid.Pile(
             [
                 urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away['goals']), align='center')
+                urwid.Text(str(game.away.goals), align='center')
             ]
         )
 
@@ -138,5 +138,5 @@ class GamePanel(urwid.WidgetWrap):
 
         return urwid.LineBox(box)
 
-        def _empty_card(self):
+        def _empty_card(self) -> urwid.Text:
             return urwid.Text('')

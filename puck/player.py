@@ -1,14 +1,13 @@
-from collections import UserDict, UserList
+import asyncio
+from collections import UserList
 
-from puck.urls import Url
-from puck.utils import request
+from puck.database.db import select_stmt, batch_update_db
+from puck.dispatcher import Dispatch
 
 
-class BasePlayer(UserDict):
+class BasePlayer(object):
     def __init__(self, db_conn, player_id, data={}):
         self.db_conn = db_conn
-
-        super().__init__(data)
 
     def update_data(self):
         raise NotImplementedError()
@@ -22,7 +21,7 @@ class GamePlayer(BasePlayer):
         super().__init__(db_conn, player_id=player_id, data=data)
 
     def update_data(self, data):
-        self.update(data)
+        pass
 
 
 class FullPlayer(BasePlayer):
@@ -30,24 +29,44 @@ class FullPlayer(BasePlayer):
         super().__init__(db_conn, player_id=player_id, data=data)
 
     def update_data(self, data):
-        self.update(data)
+        pass
 
 
 class PlayerCollection(UserList):
-    def __init__(self, db_conn, initlist=[], id_list=None, player_type=BasePlayer):  # noqa
+    def __init__(self, team, db_conn, id_list, _class=BasePlayer):  # noqa
         self.db_conn = db_conn
-        
-        if initlist:
-            for i in initlist:
-                if not isinstance(i, BasePlayer):
-                    raise ValueError(
-                        'The initial list provided contained an invalid type, \
-                    requires a subclass of BasePlayer'
-                    )
-        else:
-            initlist = [player_type(db_conn, _id) for _id in id_list]
+        self.team = team
 
-        super().__init__(initlist)
+        team_roster = select_stmt(
+            db_conn, 'player', columns=['player_id'],
+            where=('team_id', team.team_id)
+        )
+
+        # complex logic for a simple task
+        # use set mathematics to find out the players who need to be updated
+        id_set = set(id_list)
+        db_set = set()
+        update_list = []
+        for row in team_roster:
+            # for each row returned from database check if they are on the team
+            player = int(row['player_id'])
+
+            if player not in id_list:
+                # this player is no longer on the team
+                update_list.append(player)
+            else:
+                db_set.add(player)
+
+        # get the difference between id_set and db_set
+        # the difference are the players who are definitely on the team
+        # but not found in the db
+        update_list.append(list(id_set - db_set))
+
+        # asyncio.run(batch_player_update(update_list))
+
+        # initlist = [_class(db_conn, player_id) for player_id in id_list]
+
+        super().__init__([])
 
 
 if __name__ == "__main__":

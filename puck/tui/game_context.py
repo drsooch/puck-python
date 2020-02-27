@@ -1,6 +1,5 @@
 import asyncio
 from collections import defaultdict
-from copy import deepcopy
 
 import arrow
 import urwid
@@ -11,16 +10,17 @@ from puck.tui.tui_utils import (
     BaseContext, BaseDisplay, HButton, box_wrap,
     gametime_text_widget, long_strf, SelectableText
 )
-from puck.utils import batch_request_create, batch_request_update
+from puck.utils import batch_game_create, batch_game_update
 
 BOX_STATS = [
-    ('SOG', 'periods'),
-    ('PPG', 'powerPlayGoals'),
-    ('PPA', 'powerPlayOpportunities'),
-    ('PP%', 'powerPlayPercentage'),
-    ('PIMS', 'pim'),
+    ('Team', 'abbreviation'),
+    ('SOG', 'periods', 'total_shots'),
+    ('PPG', 'pp_goals'),
+    ('PPA', 'pp_att'),
+    ('PP%', 'pp_pct'),
+    ('PIMS', 'pims'),
     ('Hits', 'hits'),
-    ('FOW%', 'faceOffWinPercentage')
+    ('FOW%', 'faceoff_pct')
 ]
 
 
@@ -98,15 +98,20 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         self.size = len(_ids)
 
         # list of game objects
-        self.full_games = asyncio.run(batch_request_create(_ids, 'full'))
+        self.full_games = asyncio.run(
+            batch_game_create(_ids, 'full', self.app.db_conn)
+        )
 
         # date of games on display
         self.display_date = arrow.now().date()
 
         widget = self.main_display()
 
-        # holds reference to today's games in case date is swapped
-        self.todays_games = deepcopy(self.full_games)
+        # Cannot copy full_games because of connection data.
+        # Until a workaround is found just request data twice.
+        self.todays_games = asyncio.run(
+            batch_game_create(_ids, 'full', self.app.db_conn)
+        )
 
         urwid.WidgetWrap.__init__(self, widget)
 
@@ -114,8 +119,8 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
     def update(self):
         """Update all data encompassed by object."""
         # TODO: create logic to remove updating both unneccessarily
-        asyncio.run(batch_request_update(self.full_games))
-        asyncio.run(batch_request_update(self.todays_games))
+        asyncio.run(batch_game_update(self.full_games))
+        asyncio.run(batch_game_update(self.todays_games))
 
     def _update_in_place(self):
         # this method is purely for readability
@@ -130,7 +135,7 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         else:
             self.display_date = arrow.now().date()
 
-        self.full_games = self.todays_games  # no need to deepcopy
+        self.full_games = self.todays_games
         self.size = len(self.full_games)
         self._update_in_place()
 
@@ -146,7 +151,9 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 
         _ids = get_game_ids(params={'date': str(date)})
         self.size = len(_ids)
-        self.full_games = asyncio.run(batch_request_create(_ids, 'full'))
+        self.full_games = asyncio.run(
+            batch_game_create(_ids, 'full', self.app.db_conn)
+        )
 
         self._update_in_place()
         self.app.destroy()
@@ -154,7 +161,7 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 # -------------------------- Helper Methods --------------------------#
     def _create_game_card(self, game):
         title = SelectableText(
-            game.away.long_name + ' at ' + game.home.long_name,
+            game.away.full_name + ' at ' + game.home.full_name,
             on_press=self.ctx.switch_display,
             user_data=game
         )
@@ -162,14 +169,14 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         home = urwid.Pile(
             [
                 urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home['goals']), align='center')
+                urwid.Text(str(game.home.goals), align='center')
             ]
         )
 
         away = urwid.Pile(
             [
                 urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away['goals']), align='center')
+                urwid.Text(str(game.away.goals), align='center')
             ]
         )
 
@@ -178,23 +185,14 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         game_card = urwid.Columns([away, time, home])
         game_card = urwid.LineBox(game_card)
 
-        box_score = [
-            urwid.Pile(
-                [
-                    urwid.Text(u'Team', 'center'),
-                    urwid.Text(game.home.abbreviation, 'center'),
-                    urwid.Text(game.away.abbreviation, 'center')
-                ]
-            )
-        ]
+        box_score = []
         for stat in BOX_STATS:
-            # hard code this path b/c it requires one more step of indirection
-            if stat[1] == 'periods':
-                val_h = game.home.periods.total_shots
-                val_a = game.away.periods.total_shots
-            else:
-                val_h = game.home[stat[1]]
-                val_a = game.away[stat[1]]
+            val_h = getattr(game.home, stat[1])
+            val_a = getattr(game.away, stat[1])
+
+            if len(stat) == 3:
+                val_h = getattr(val_h, stat[2])
+                val_a = getattr(val_a, stat[2])
 
             if stat[0] in ['FOW%', 'PP%']:
                 val_h += '%'
@@ -311,12 +309,12 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
             widgets.append(urwid.Divider('-'))
             for game in games:
                 teams = urwid.Text(
-                    game.away.long_name + ' at ' + game.home.long_name,
+                    game.away.full_name + ' at ' + game.home.full_name,
                     align='center'
                 )
                 if game.is_live or game.is_final:
                     game_status = urwid.Text(
-                        str(game.away['goals']) + ' - ' + str(game.home['goals']),  # noqa
+                        str(game.away.goals) + ' - ' + str(game.home.goals),  # noqa
                         align='center'
                     )
                 else:
@@ -358,7 +356,9 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
             }
         )
 
-        games = asyncio.run(batch_request_create(_ids, 'banner'))
+        games = asyncio.run(
+            batch_game_create(_ids, 'banner', self.app.db_conn)
+        )
 
         # this partitions games by their date
         for game in games:
