@@ -58,7 +58,7 @@ class SelectableText(urwid.WidgetWrap):
     """
 
     def __init__(self, text, on_press=None, user_data=None):
-        """[summary]
+        """Selectable Text
 
         Args:
             text (str): string of text for display
@@ -130,7 +130,8 @@ class BaseDisplay(object):
         # rows of widget
         self._rows = rows
 
-        super().__init__()
-
     def update(self):
         raise NotImplementedError('Implement an update method for the display')
+
+    def __repr__(self):
+        return f'{self.__class__} -> {self.__dict__}'

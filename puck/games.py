@@ -69,6 +69,8 @@ class BannerGame(BaseGame):
         subset of data.
         """
 
+        # TODO CLEAN UP UPDATE
+
         # If the game is already finished, no need to request info
         if self.is_final:
             return

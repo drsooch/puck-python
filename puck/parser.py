@@ -11,6 +11,7 @@ import arrow
 
 import puck.constants as const
 
+
 def game_parser(game_info) -> dict:
     """
     Parses Url.GAME JSON data. Returns a dictionary of the necessary
@@ -136,4 +137,4 @@ def get_parser(parser_type):
         'player_info': player_info_parser,
     }
 
-    return parser_handler(parser_type)
+    return parser_handler[parser_type]

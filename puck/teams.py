@@ -107,7 +107,7 @@ class BannerTeam(BaseTeam):
         # call parent class constructor
         super().__init__(team_id, game.db_conn)
 
-        self._game = game
+        self.game = game
         self.game_id = game_id
 
         # parse the game data
@@ -191,7 +191,7 @@ class FullStatsTeam(BaseTeam):
         super().__init__(team_id, game.db_conn)
 
         # holds reference to the Game "container"
-        self._game = game
+        self.game = game
         self.game_id = game_id
 
         # parse the data
@@ -221,8 +221,8 @@ class FullStatsTeam(BaseTeam):
         id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['skaters'])  # noqa
         id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['scratches'])  # noqa
 
-        self.player_stats = PlayerCollection(
-            self, game.db_conn, id_list, _class=GamePlayer
+        self.players = PlayerCollection(
+            self, id_list, _class=GamePlayer
         )
 
     def update_data(self, game_info=None):

@@ -4,19 +4,23 @@ from copy import copy
 
 import urwid
 import urwid.raw_display
-from additional_urwid_widgets import DatePicker, MessageDialog
-from puck.games import get_game_ids
-from puck.utils import batch_game_create, batch_game_update
-from puck.tui.game_panel import GamePanel
-from puck.tui.game_context import GamesContext
+from additional_urwid_widgets import (DatePicker, IndicativeListBox,
+                                      MessageDialog)
+
 from puck.database.db import connect_db
+from puck.games import get_game_ids
+from puck.tui.game_context import GamesContext
+from puck.tui.game_panel import GamePanel
+from puck.tui.tui_utils import SelectableText
+from puck.utils import batch_game_create, batch_game_update
 
 VERSION = '0.1'
-ROW_SPACE = 6
+ROW_SPACE = 5
 APP_PROP = 4
 
 PALETTE = [
     ('main', 'white', 'black'),
+    ('inv_main', 'black', 'white'),
     ('menu_focus', 'standout', ''),
     ('dp_focus', 'black', 'white'),
     ('dp_no_focus', 'white', 'black'),
@@ -42,8 +46,10 @@ class PuckApp(object):
         (self.cols, self.rows) = self.screen.get_cols_rows()
         self._sizing()
 
-        # top bar and header
-        self.header = create_header()
+        # footer and progress bar
+        self.header = urwid.WidgetPlaceholder(create_header())
+
+        # top bar
         self._populate_hidden()
         self.game_panel = GamePanel(self, self.tb_rows)
 
@@ -99,7 +105,7 @@ class PuckApp(object):
             [msg], [ok], size, background=self.frame, contents_align='center'
         )
 
-    def switch_context(self, btn):
+    def switch_context(self, btn, data=None):
         # originally implemented using widgetPlaceholder however,
         # the listbox would not update resulting in context menu being
         # unselectable. Re-Render a whole new main display to work around
@@ -151,14 +157,19 @@ class PuckApp(object):
 
         if self.cols <= 80:
             self.max_games = 1
+            self.sizing = Sizing(5, 10, False, 1)
         elif self.cols <= 110:
             self.max_games = 2
+            self.sizing = Sizing(5, 10, False, 1)
         elif self.cols <= 135:
             self.max_games = 3
+            self.sizing = Sizing(5, 15, True, 1)
         elif self.cols <= 165:
             self.max_games = 4
+            self.sizing = Sizing(6, 25, True, 2)
         else:
             self.max_games = 5
+            self.sizing = Sizing(8, 30, True, 2)
 
     def _populate_hidden(self):
         self.hidden_prev = deque([], self.size)
@@ -188,46 +199,58 @@ class PuckApp(object):
         self.list_walk[0] = self.top_bar
         self.list_walk.set_focus(0)
 
+    def display_progress_bar(self):
+        self.frame.footer = self.progress_bar
 
-def create_header():
+    def update_progress_bar(self, percent):
+        if self.footer.original_widget == self.progress_bar:
+            self.progress_bar.set_completion(percent)
+            self.frame.footer = self.footer
+
+
+def create_header() -> urwid.Columns:
     return urwid.Text(u'Puck v{}'.format(VERSION), align='center')
 
 
-def create_main_menu(app, rows):
+def create_main_menu(app, rows) -> urwid.LineBox:
     choices = [u'Standings', u'Games', u'Teams', u'Players']
     btns = []
     for c in choices:
-        btns.append(urwid.Button(c, on_press=app.switch_context))
+        btns.append(SelectableText(c, on_press=app.switch_context))
+        btns.append(urwid.Divider())
 
-    btn_grid = urwid.GridFlow(btns, 15, 10, 1, 'center')
+    pile = urwid.Pile(btns)
+    ilb = IndicativeListBox(urwid.SimpleFocusListWalker(btns))
 
-    box = urwid.BoxAdapter(urwid.Filler(btn_grid), rows)
+    box = urwid.BoxAdapter(ilb, rows)
     return urwid.LineBox(box, title='Main Menu')
 
 
-def create_context_menu(app, context, rows):
-    choices = [u'Standings', u'Games', u'Teams', u'Players']
-    btns = []
-    for c in choices:
-        btns.append(urwid.Button(c, on_press=app.switch_context))
-
-    btn_grid = urwid.GridFlow(btns, 15, 10, 1, 'center')
-    box = urwid.BoxAdapter(urwid.Filler(btn_grid), rows)
-
-    return urwid.LineBox(box, f'{context}')
-
-
-def create_opening_menu(rows):
+def create_opening_menu(rows) -> urwid.LineBox:
     text = urwid.Text(u'')
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
 
 
-def create_opening_page(rows):
+def create_opening_page(rows) -> urwid.LineBox:
     start_text = u'Welcome to Puck version: {}\n \
         Visit https://github.com/drsooch/puck for more information.'.format(VERSION)  # noqa
     text = urwid.Text(start_text, align='center')
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
+
+
+def create_prog_bar() -> urwid.ProgressBar:
+    pb = urwid.ProgressBar('main', 'inv_main', 50, 100, 'main')
+
+    return pb
+
+
+class Sizing(object):
+    def __init__(self, gp_btns, gp_main, gp_divider, game_display):
+        self.gp_btns = gp_btns
+        self.gp_main = gp_main
+        self.gp_divider = gp_divider
+        self.game_display = game_display

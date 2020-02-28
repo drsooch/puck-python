@@ -9,6 +9,7 @@ import requests
 
 import puck.parser as parser
 from puck.dispatcher import Dispatch
+import puck.constants as const
 
 from .urls import Url, URLException
 
@@ -186,7 +187,7 @@ def team_to_id(team):
             raise TeamException
 
     try:
-        return _TEAM_ID[team]
+        return const.TEAM_ID[team]
     except KeyError as e:
         raise TeamException
 
@@ -205,7 +206,7 @@ def shorten_tname(team):
         TeamException
     """
     try:
-        return _TEAM_LS[team]
+        return const.TEAM_LS[team]
     except KeyError as e:
         raise TeamException
 

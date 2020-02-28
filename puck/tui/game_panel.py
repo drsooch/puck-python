@@ -5,7 +5,7 @@ from copy import copy
 from additional_urwid_widgets import DatePicker, MessageDialog
 from puck.utils import batch_game_create, batch_game_update
 from puck.games import get_game_ids
-from puck.tui.tui_utils import gametime_text_widget, box_wrap, HButton
+from puck.tui.tui_utils import gametime_text_widget, box_wrap, SelectableText
 
 
 class GamePanel(urwid.WidgetWrap):
@@ -21,10 +21,17 @@ class GamePanel(urwid.WidgetWrap):
         self.app._reload_topbar()
 
 # -------------------------- Button Methods --------------------------#
-    def cycle_games(self, btn):
+    def cycle_games(self, btn, data=None):
         # when popping and pushing elements onto the widget and  hidden lists,
         # care must be taken to not pop buttons or insert before/after buttons
-        wl = self._w.base_widget.contents[2][0].widget_list
+
+        # depending on the size of the terminal, may have an extra widget
+        if self.app.sizing.gp_divider:
+            index = 2
+        else:
+            index = 1
+
+        wl = self._w.base_widget.contents[index][0].widget_list
 
         if self.app.size < self.app.max_games:
             return
@@ -63,27 +70,39 @@ class GamePanel(urwid.WidgetWrap):
 
 # -------------------------- Helper Methods --------------------------#
     def _create_game_panel(self, date=None) -> urwid.LineBox:
-        next_btn = HButton(u'Next', on_press=self.cycle_games)
-        prev_btn = HButton(u'Prev', on_press=self.cycle_games)
-        date_btn = HButton(
+        next_btn = SelectableText(u'Next', on_press=self.cycle_games)
+        prev_btn = SelectableText(u'Prev', on_press=self.cycle_games)
+        date_btn = SelectableText(
             u'Date', on_press=self.app._date_picker, user_data=self
         )
 
         if not date:
-            _today = arrow.now().to('local').strftime('%a %b %d, %Y')
-            date_text = urwid.Text(_today)
+            date = arrow.now().to('local')
         else:
-            date = date.get_date().strftime('%a %b %d, %Y')
-            date_text = urwid.Text(date)
+            date = date.get_date()
+
+        if self.app.sizing.gp_main > 20:
+            date_text = urwid.Text(date.strftime('%a %b %d, %Y'))
+        else:
+            date_text = urwid.Text(date.strftime('%x'))
 
         num_games = urwid.Text(f'Game(s): {self.app.size}')
 
         btn_grid = urwid.GridFlow(
-            [prev_btn, next_btn, date_btn], 8, 3, 1, 'center'
+            [prev_btn, next_btn, date_btn],
+            self.app.sizing.gp_btns, 3, 1, 'center'
         )
-        top_grid = urwid.GridFlow(
-            [date_text, num_games, btn_grid], 30, 3, 1, 'center'
-        )
+
+        if self.app.sizing.gp_main < 16:
+            top_grid = urwid.GridFlow(
+                [date_text, num_games, prev_btn, next_btn, date_btn],
+                self.app.sizing.gp_main, 2, 1, 'center'
+            )
+        else:
+            top_grid = urwid.GridFlow(
+                [date_text, num_games, btn_grid],
+                self.app.sizing.gp_main, 3, 1, 'center'
+            )
 
         cards = []
 
@@ -106,7 +125,11 @@ class GamePanel(urwid.WidgetWrap):
             cards.append(('weight', 3, self.app.hidden_next.pop()))
 
         columns = urwid.Columns(cards)
-        pile = urwid.Pile([top_grid, urwid.Divider(), columns])
+
+        if self.app.sizing.gp_divider:
+            pile = urwid.Pile([top_grid, urwid.Divider(), columns])
+        else:
+            pile = urwid.Pile([top_grid, columns])
 
         box = box_wrap(pile, self._rows)
 

@@ -183,6 +183,8 @@ async def batch_update_db(_ids, db_conn, dispatcher):
                 )
             )
 
+        await asyncio.gather(*workers)
+
 
 async def player_update_db(db_conn, session, _id, dispatcher, params=None):
     """Async player update function.
@@ -198,7 +200,6 @@ async def player_update_db(db_conn, session, _id, dispatcher, params=None):
     data = await async_request(
         dispatcher.url, session, {dispatcher.id_type: _id}, params
     )
-
     parsed_data = dispatcher.parser(data)
 
     update_stmt(
@@ -276,12 +277,12 @@ def update_stmt(db_conn, table, params, where=None):
     """
 
     base_str = "UPDATE {} SET ".format(table)
-    params = []
+    data = []
     stmt = []
 
-    for key, val in params:
+    for key, val in params.items():
         stmt.append('{} = {}'.format(key, "?"))
-        params.append(val)
+        data.append(val)
 
     base_str += ", ".join(stmt)
 
@@ -291,14 +292,14 @@ def update_stmt(db_conn, table, params, where=None):
         if isinstance(where, list):
             for w in where:
                 stmt.append("{} = {}".format(w[0], "?"))
-                params.append(w[1])
+                data.append(w[1])
         else:
             stmt.append("{} = {}".format(where[0], "?"))
-            params.append(where[1])
+            data.append(where[1])
 
         base_str += ", ".join(stmt)
 
-    db_conn.execute(base_str, tuple(params))
+    db_conn.execute(base_str, tuple(data))
     db_conn.commit()
 
 

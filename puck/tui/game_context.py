@@ -11,6 +11,8 @@ from puck.tui.tui_utils import (
     gametime_text_widget, long_strf, SelectableText
 )
 from puck.utils import batch_game_create, batch_game_update
+from puck.database.db import batch_update_db
+from puck.dispatcher import Dispatch
 
 BOX_STATS = [
     ('Team', 'abbreviation'),
@@ -38,7 +40,7 @@ class GamesContext(BaseContext):
         choices = [u'Today', u'Select Date', u'Select Game', u'Schedule']
         btns = []
         for c in choices:
-            btns.append(HButton(c, on_press=self.switch_display))
+            btns.append(SelectableText(c, on_press=self.switch_display))
 
         btn_grid = urwid.GridFlow(btns, 15, 10, 1, 'center')
         box = box_wrap(btn_grid, self._rows)
@@ -57,8 +59,8 @@ class GamesContext(BaseContext):
                 self.display = GameDisplay(self.app, self, self._rows)
         elif btn.label == 'Select Date':
             self.app._date_picker(btn=btn, caller=self)
-        # elif btn.label == 'Select Game' or isinstance(data, BaseGame):
-        # self.display = SingleGameDisplay(self.app, self, self._rows, data)
+        elif btn.label == 'Select Game' or isinstance(data, BaseGame):
+            self.display = SingleGameDisplay(self.app, self, self._rows, data)
         elif btn.label == 'Schedule':
             self.display = ScheduleDisplay(self.app, self, self._rows)
         else:
@@ -160,8 +162,16 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 
 # -------------------------- Helper Methods --------------------------#
     def _create_game_card(self, game):
+
+        if self.app.sizing.game_display == 1 and self.app.cols <= 80:
+            home_title = game.home.abbreviation
+            away_title = game.away.abbreviation
+        else:
+            home_title = game.home.full_name
+            away_title = game.away.full_name
+
         title = SelectableText(
-            game.away.full_name + ' at ' + game.home.full_name,
+            away_title + ' at ' + home_title,
             on_press=self.ctx.switch_display,
             user_data=game
         )
@@ -227,24 +237,46 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         )
 
         cards = [urwid.Divider('-'), date_text, urwid.Divider('-')]
-        # put game box scores side by side
-        for i, game in enumerate(self.full_games):
-            if i % 2 == 0:  # when even its the "first" column
-                prev = self._create_game_card(game)
-            else:  # else it needs to be paired with the prev column
-                curr = self._create_game_card(game)
-                col = urwid.Columns([prev, curr], dividechars=1)
-                cards.append(col)
 
-        # if there is an extra game box score add it last
-        if self.size % 2 != 0:
-            cards.append(urwid.Columns([prev]))
+        if self.app.sizing.game_display == 2:
+            # put game box scores side by side
+            for i, game in enumerate(self.full_games):
+                if i % 2 == 0:  # when even its the "first" column
+                    prev = self._create_game_card(game)
+                else:  # else it needs to be paired with the prev column
+                    curr = self._create_game_card(game)
+                    col = urwid.Columns([prev, curr], dividechars=1)
+                    cards.append(col)
+
+            # if there is an extra game box score add it last
+            if self.size % 2 != 0:
+                cards.append(urwid.Columns([prev]))
+        else:
+            for game in self.full_games:
+                cards.append(self._create_game_card(game))
 
         lw = urwid.SimpleFocusListWalker(cards)
         idlb = IndicativeListBox(lw)
         box = urwid.BoxAdapter(idlb, self._rows)
 
         return urwid.LineBox(box)
+
+    def replace_players(self):
+        """Loop through all games, merge each PlayerCollections need_to_update
+        Run a batch update on the database.
+        """
+        replacement = []
+        for game in self.full_games:
+            replacement.extend(game.home.players.need_to_update)
+            replacement.extend(game.away.players.need_to_update)
+            game.home.players.need_to_update = []
+            game.away.players.need_to_update = []
+
+        asyncio.run(
+            batch_update_db(
+                replacement, self.app.db_conn, Dispatch.player_info()
+            )
+        )
 
 
 class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
@@ -259,8 +291,8 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
         self.current_week_start = today.shift(days=-shift)
         self.current_week_end = self.current_week_start.shift(days=+6)
 
-        self.prev_btn = HButton('Prev', on_press=self.previous_page)
-        self.next_btn = HButton('Next', on_press=self.next_page)
+        self.prev_btn = SelectableText('Prev', on_press=self.previous_page)
+        self.next_btn = SelectableText('Next', on_press=self.next_page)
 
         # holds BaseGame objects for each day in the current week
         self.current_week_games = defaultdict(lambda: [])
@@ -275,7 +307,7 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
         pass
 # -------------------------- Button Methods --------------------------#
 
-    def previous_page(self, btn):
+    def previous_page(self, btn, data=None):
         """cycle to the previous week"""
         self.current_week_start = self.current_week_start.shift(days=-7)
         self.current_week_end = self.current_week_end.shift(days=-7)
@@ -284,7 +316,7 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
 
         self._w = self.build_schedule()
 
-    def next_page(self, btn):
+    def next_page(self, btn, data=None):
         """cycle to the next week"""
         self.current_week_start = self.current_week_start.shift(days=+7)
         self.current_week_end = self.current_week_end.shift(days=+7)
@@ -378,3 +410,8 @@ class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
 
     def update(self):
         return super().update()
+
+# -------------------------- Helper Methods --------------------------#
+    def build_display(self):
+
+        pass
