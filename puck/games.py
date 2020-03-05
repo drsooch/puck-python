@@ -1,12 +1,12 @@
-import arrow
 import asyncio
 
+import arrow
 
-from .urls import Url
-from .utils import request
-from .teams import FullStatsTeam, BannerTeam
-import puck.parser as parser
 import puck.constants as const
+import puck.parser as parser
+from puck.teams import BannerTeam, FullStatsTeam
+from puck.urls import Url
+from puck.utils import request
 
 
 class GameIDException(Exception):
@@ -53,7 +53,7 @@ class BannerGame(BaseGame):
         if not data:
             data = request(Url.GAME, url_mods={'game_id': game_id})
 
-        parsed_data = parser.game_parser(data)
+        parsed_data = parser.game(data)
 
         for key, val in parsed_data.items():
             setattr(self, key, val)
@@ -65,7 +65,7 @@ class BannerGame(BaseGame):
         """
         This class method updates a game object.
 
-        NOTE: Does not use game_parser as we only need to update small
+        NOTE: Does not use game as we only need to update small
         subset of data.
         """
 
@@ -84,21 +84,17 @@ class BannerGame(BaseGame):
         if _status_code in const.GAME_STATUS['Preview'] and self.is_preview:  # noqa
             self.game_status = _status_code
             return
-        else:
-            # game state has changed
-            self.game_status = _status_code
-            self.is_preview = False
 
-            if self.game_status in const.GAME_STATUS['Final']:
-                self.is_final = True
-                self.is_live = False
+        parsed_data = parser.game(data)
+
+        for key, val in parsed_data.items():
+            if hasattr(self, key):
+                setattr(self, key, val)
             else:
-                self.is_live = True
-
-        # only these values need to be updated
-        self.period = data['liveData']['linescore']['currentPeriodOrdinal']  # noqa
-        self.time = data['liveData']['linescore']['currentPeriodTimeRemaining']  # noqa
-        self.in_intermission = data['liveData']['linescore']['intermissionInfo']['inIntermission']  # noqa
+                raise AttributeError(
+                    f'Game.update_data received an attribute {key} \
+                    that has not been set.'
+                )
 
         # this will call update no matter the Team Class type
         self.home.update_data(data)

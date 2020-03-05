@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from puck.database.db import connect_db
+import puck.database.db
 from puck.utils import ConfigError
 
 

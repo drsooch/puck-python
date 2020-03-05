@@ -5,14 +5,13 @@ import arrow
 import urwid
 from additional_urwid_widgets import IndicativeListBox
 
-from puck.games import get_game_ids, BaseGame
-from puck.tui.tui_utils import (
-    BaseContext, BaseDisplay, HButton, box_wrap,
-    gametime_text_widget, long_strf, SelectableText
-)
-from puck.utils import batch_game_create, batch_game_update
 from puck.database.db import batch_update_db
 from puck.dispatcher import Dispatch
+from puck.games import BaseGame, get_game_ids
+from puck.tui.tui_utils import (BaseContext, BaseDisplay, SelectableText,
+                                box_wrap, gametime_text_widget, long_strf)
+from puck.urls import Url
+from puck.utils import batch_game_create, batch_game_update, request
 
 BOX_STATS = [
     ('Team', 'abbreviation'),
@@ -163,7 +162,7 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 # -------------------------- Helper Methods --------------------------#
     def _create_game_card(self, game):
 
-        if self.app.sizing.game_display == 1 and self.app.cols <= 80:
+        if self.app.sizing.game_display == 1 and self.app.cols <= 100:
             home_title = game.home.abbreviation
             away_title = game.away.abbreviation
         else:
@@ -398,20 +397,56 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
 
 
 class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
-    """Displays a single games full stats."""
+    """Displays a single game's full stats."""
 
     def __init__(self, app, ctx, row, game):
         BaseDisplay.__init__(self, app, ctx, row)
 
         self.game = game
 
-        widget = urwid.Text('Testing.')
+        data = request(
+            Url.GAME, {'game_id': self.game.game_id}
+        )
+
+        # This display requires players to initialized.
+        self.game.away.init_players(data)
+        self.game.home.init_players(data)
+
+        self.game.update_data(data)
+
+        widget = self.build_display()
         urwid.WidgetWrap.__init__(self, widget)
 
+# -------------------------- Top Level Methods --------------------------#
     def update(self):
-        return super().update()
+        data = request(
+            Url.GAME, {'game_id': self.game.game_id}
+        )
 
+        self.game.update_data(data)
+
+        # this is the internal attribute widget
+        self._w = self.build_display()
+
+    def roster_update(self):
+        """Update any needed roster. SHOULD NEVER BE USED. USING THIS AS A
+        PLACEHOLDER CURRENTLY."""
+        replacements = []
+        if self.game.home.players.need_to_update:
+            replacements.extend(self.game.home.players.need_to_update)
+        if self.game.away.players.need_to_update:
+            replacements.extend(self.game.away.players.need_to_update)
+
+        asyncio.run(
+            batch_update_db(
+                replacements, self.app.db_conn, Dispatch.player_info()
+            )
+        )
 # -------------------------- Helper Methods --------------------------#
-    def build_display(self):
 
-        pass
+    def build_display(self) -> urwid.LineBox:
+        game_time = gametime_text_widget(self.game)
+        home = urwid.Text(self.game.home.full_name, 'center')
+        away = urwid.Text(self.game.away.full_name, 'center')
+
+        return game_time

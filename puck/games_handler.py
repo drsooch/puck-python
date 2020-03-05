@@ -1,10 +1,11 @@
-import arrow
 import asyncio
+
+import arrow
 import click
 
-from .games import BannerGame, FullGame, get_game_ids
-from .urls import Url
-from .utils import request, batch_game_create, team_to_id
+from puck.games import BannerGame, FullGame, get_game_ids
+from puck.urls import Url
+from puck.utils import batch_game_create, request, team_to_id
 
 
 def games_handler(config, cmd_vals):

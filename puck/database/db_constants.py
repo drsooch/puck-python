@@ -8,33 +8,15 @@ from enum import Enum
 
 
 class TableColumns(Enum):
-
-    TEAM_TABLE_COLS = [
-        "team_id", "full_name", "abbreviation",
-        "division", "conference", "active",
-        "franchise_id"
-    ]
-
-    BASE_GAME_COLS = [
+    BASE_TEAM_CLASS = [
         "team_id", "full_name", "abbreviation",
         "division", "conference", "franchise_id"
     ]
 
-    PLAYER_TABLE_COLS = [
-        "player_id", "team_id", "first_name",
+    BASE_PLAYER_CLASS = [
+        "team_id", "first_name",
         "last_name", "number", "position",
         "handedness", "rookie", "age",
-        "birth_date", "birth_city", "birth_state",
-        "birth_country", "height", "weight",
-        "last_updated"
-    ]
-
-    PLAYER_INSERT_COLS = [
-        "player_id", "team_id", "first_name",
-        "last_name", "number", "position",
-        "handedness", "rookie", "age",
-        "birth_date", "birth_city", "birth_state",
-        "birth_country", "height", "weight",
     ]
 
 
@@ -75,24 +57,29 @@ TEAM_TABLE = """
 CREATE TABLE "team" (
     "team_id"       INTEGER NOT NULL UNIQUE,
     "full_name"     TEXT NOT NULL,
-    "abbreviation"  TEXT NOT NULL CHECK(length("abbreviation") <= 3),
-    "division"      INTEGER NOT NULL,
-    "conference"    INTEGER NOT NULL,
-    "active"        INTEGER CHECK("active" == 1 OR "active" == 0),
-    "franchise_id"  INTEGER NOT NULL,
+    "abbreviation"  TEXT CHECK(length("abbreviation") <= 3),
+    "division"      INTEGER,
+    "conference"    INTEGER,
+    "active"        INTEGER CHECK("active" == 1
+                                    OR "active" == 0
+                                    OR "active" IS NULL),
+    "franchise_id"  INTEGER,
+    "league_name"   TEXT NOT NULL,
+    FOREIGN KEY("league_name") REFERENCES "league"("league_name"),
     PRIMARY KEY("team_id")
 );
 """
 
 PLAYER_SEASON_TABLE = """
 CREATE TABLE "player_season" (
-    "unique_id"     INTEGER UNIQUE,
+    "unique_id"     INTEGER NOT NULL UNIQUE,
     "player_id"     INTEGER NOT NULL,
     "season"        INTEGER NOT NULL,
     "league_id"     INTEGER,
     "league_name"   TEXT NOT NULL,
     "team_id"       INTEGER,
     "team_name"     TEXT NOT NULL,
+    FOREIGN KEY("league_name") REFERENCES "league"("league_name"),
     FOREIGN KEY("player_id") REFERENCES "player"("player_id"),
     PRIMARY KEY("unique_id" AUTOINCREMENT)
 );
@@ -128,6 +115,7 @@ CREATE TABLE "skater_season_stats" (
     "plus_minus"    INTEGER,
     "blocked"       INTEGER,
     "shifts"        INTEGER,
+    "last_updated"  TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY("unique_id"),
     FOREIGN KEY("unique_id") REFERENCES "player_season"("unique_id")
 );
@@ -157,7 +145,7 @@ CREATE TABLE "goalie_season_stats" (
     "goals_against" INTEGER,
     "pp_save_pct"   REAL,
     "sh_save_pct"   REAL,
-    "es_save_pct"   REAL,
+    "ev_save_pct"   REAL,
     "last_updated"  TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY("unique_id"),
     FOREIGN KEY("unique_id") REFERENCES "player_season"("unique_id")
@@ -202,7 +190,7 @@ CREATE TABLE "team_season_stats" (
     "win_lead_first_per"    REAL,
     "win_lead_second_per"   REAL,
     "win_outshoot_opp"      REAL,
-    "win_outshoot_by_opp"   REAL,
+    "win_outshot_by_opp"    REAL,
     "faceoffs_taken"        INTEGER,
     "faceoff_wins"          INTEGER,
     "faceoff_losses"        INTEGER,
@@ -212,6 +200,14 @@ CREATE TABLE "team_season_stats" (
     "last_updated"          TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY("unique_id") REFERENCES "team_season"("unique_id"),
     PRIMARY KEY("unique_id")
+);
+"""
+
+LEAGUE_TABLE = """
+CREATE TABLE "league" (
+    "league_id"     INTEGER,
+    "league_name"   TEXT,
+    PRIMARY KEY("league_name")
 );
 """
 
@@ -248,25 +244,28 @@ CREATE TRIGGER update_time_skater_stats AFTER UPDATE ON skater_season_stats
     END;
 """
 
-COMPUTE_ASSISTS_INS_TRIGGER = """
-CREATE TRIGGER compute_assists_ins AFTER INSERT ON skater_season_stats
+COMPUTE_POINTS_INS_TRIGGER = """
+CREATE TRIGGER compute_points_ins AFTER INSERT ON skater_season_stats
 BEGIN
     UPDATE skater_season_stats
-        SET pp_assists = (new.pp_points - new.pp_goals),
-            ev_assists = (new.ev_points - new.ev_goals),
+        SET ev_points  = (new.points - new.pp_points - new.sh_points),
+            ev_goals   = (new.goals - new.pp_goals - new.sh_goals),
+            pp_assists = (new.pp_points - new.pp_goals),
+            ev_assists = (ev_points - ev_goals),
             sh_assists = (new.sh_points - new.sh_goals)
         WHERE
             unique_id = new.unique_id;
 END;
 """
 
-COMPUTE_ASSISTS_UPD_TRIGGER = """
-CREATE TRIGGER compute_assists_upd AFTER INSERT
-ON skater_season_stats
+COMPUTE_POINTS_UPD_TRIGGER = """
+CREATE TRIGGER compute_points_upd AFTER UPDATE ON skater_season_stats
 BEGIN
     UPDATE skater_season_stats
-        SET pp_assists = (new.pp_points - new.pp_goals),
-            ev_assists = (new.ev_points - new.ev_goals),
+        SET ev_points  = (new.points - new.pp_points - new.sh_points),
+            ev_goals   = (new.goals - new.pp_goals - new.sh_goals),
+            pp_assists = (new.pp_points - new.pp_goals),
+            ev_assists = (ev_points - ev_goals),
             sh_assists = (new.sh_points - new.sh_goals)
         WHERE
             unique_id = new.unique_id;
@@ -274,19 +273,24 @@ END;
 """
 
 BASE_TABLES = {
+    'league': LEAGUE_TABLE,
     'player': PLAYER_TABLE, 'team': TEAM_TABLE,
     'player_season': PLAYER_SEASON_TABLE,
     'skater_season_stats': SKATER_SEASON_STATS_TABLE,
     'goalie_season_stats': GOALIE_SEASON_STATS_TABLE,
     'team_season': TEAM_SEASON_TABLE,
-    'team_season_stats': TEAM_SEASON_STATS_TABLE
+    'team_season_stats': TEAM_SEASON_STATS_TABLE,
 }
 
 BASE_TRIGGERS = [
     UPDATE_TIME_P_TRIGGER, UPDATE_TIME_TS_TRIGGER, UPDATE_TIME_SS_TRIGGER,
-    UPDATE_TIME_GS_TRIGGER, COMPUTE_ASSISTS_INS_TRIGGER,
-    COMPUTE_ASSISTS_UPD_TRIGGER
+    UPDATE_TIME_GS_TRIGGER, COMPUTE_POINTS_INS_TRIGGER,
+    COMPUTE_POINTS_UPD_TRIGGER
 ]
 
 
 GET_TABLES = """SELECT tbl_name FROM sqlite_master WHERE type = 'table'"""
+PRIMARY_DATA = [
+    """INSERT INTO league(league_id, league_name) VALUES (133, "NHL");""",
+    """INSERT INTO league(league_id, league_name) VALUES (153, "AHL");"""
+]

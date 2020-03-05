@@ -1,6 +1,8 @@
+import sys
+
 import urwid
 import urwid.raw_display
-import sys
+
 from puck.tui.puck_app import PuckApp
 
 # TUI entry point

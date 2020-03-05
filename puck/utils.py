@@ -7,11 +7,10 @@ import arrow
 import click
 import requests
 
+import puck.constants as const
 import puck.parser as parser
 from puck.dispatcher import Dispatch
-import puck.constants as const
-
-from .urls import Url, URLException
+from puck.urls import Url, URLException
 
 
 class TeamException(Exception):
@@ -156,6 +155,8 @@ def _generate_url(url, url_mods):
             url = url.value.format(url_mods['team_id'])
         elif Url.PLAYERS == url:
             url = url.value.format(url_mods['player_id'])
+        elif Url.PLAYER_STATS_ALL == url:
+            url = url.value.format(url_mods['player_id'])
     except KeyError as err:
         raise URLException(
             f'Url modifications did not contain the valid format string.\n\
@@ -209,6 +210,49 @@ def shorten_tname(team):
         return const.TEAM_LS[team]
     except KeyError as e:
         raise TeamException
+
+
+class ProgressBar(object):
+    def __init__(
+            self, start=0, end=100, prefix='Progress:', suffix='Complete',
+            decimals=1, length=75, fill='█', print_end="\r"
+    ):
+        self.start_time = arrow.now()
+        self.curr = start
+        self.end = end
+        self.prefix = prefix
+        self.suffix = suffix
+        self.decimals = decimals
+        self.length = length
+        self.fill = fill
+        self.print_end = print_end
+
+        self.print_bar()
+
+    def increment(self, amt=1):
+        self.curr += amt
+        self.print_bar()
+
+    def force_complete(self):
+        self.curr = self.end
+        self.print_bar()
+
+    def completed(self):
+        result = arrow.now() - self.start_time
+        print()
+        print(f'Took: {result.total_seconds()}')
+
+    def print_bar(self):
+        percent = ("{0:." + str(self.decimals) + "f}").format(
+            100 * (self.curr / float(self.end))
+        )
+        filledLength = int(self.length * self.curr // self.end)
+        bar = self.fill * filledLength + '-' * (self.length - filledLength)
+        print('\r%s |%s| %s%% %s' %
+              (self.prefix, bar, percent, self.suffix), end=self.print_end)
+        # Print New Line on Complete
+        if self.curr == self.end:
+            self.completed()
 
 
 def style(msg, format):

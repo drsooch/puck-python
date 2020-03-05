@@ -12,7 +12,6 @@ class Url(Enum):
     """
 
     TEAMS = 'https://statsapi.web.nhl.com/api/v1/teams/{}'
-    TEAM_STATS = 'https://statsapi.web.nhl.com/api/v1/teams/{}/stats'
     TEAM_ROSTER = 'https://statsapi.web.nhl.com/api/v1/teams/{}/roster'
     SCHEDULE = 'https://statsapi.web.nhl.com/api/v1/schedule'
     RECORDS = 'https://records.nhl.com/site/api'
@@ -20,6 +19,7 @@ class Url(Enum):
     STANDINGS = 'https://statsapi.web.nhl.com/api/v1/standings'
     PLAYERS = 'https://statsapi.web.nhl.com/api/v1/people/{}'
     PLAYER_STATS = 'https://statsapi.web.nhl.com/api/v1/people/{}/stats'
+    PLAYER_STATS_ALL = 'https://statsapi.web.nhl.com/api/v1/people/{}/stats?stats=yearByYear'  # noqa
 
     @staticmethod
     def formattable():

@@ -1,10 +1,9 @@
-import click
 import arrow
+import click
 
-
-from puck.utils import style
-from puck.games_handler import games_handler
 from puck.database.db import connect_db
+from puck.games_handler import games_handler
+from puck.utils import style
 
 
 class Config(object):

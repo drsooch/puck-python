@@ -26,21 +26,21 @@ Selecting the option simply prints out the selected time frames games.
 ## TUI
 The actual TUI has its framework pretty set in stone. Unfortunately, I struggled with wrangling Urwid framework to conform to the Terminals size. In its current state sizing has slowly been worked into the code. As it stands, width is adaptive (somewhat). Please let me know if you run into any issues with sizing let me know! (all 2 of you reading this)
 
-![Puck TUI usage](imgs/PuckTUImain.png)
+![Puck TUI usage](imgs/TUIMain.png)
 
-The Games menu option is currently the only one available. You can drill down into the box scores for past games and look at the upcoming schedule. Single Game Display is up next, but first work needs to be on tracking player stats for a more fleshed out experience.
+The Games menu option is currently the only one available. You can drill down into the box scores for past games and look at the upcoming schedule. Single Game boxscores are on their way. The most recent commit will require database set up (see below). When selecting an individual game, you won't be greeted with anything useful. In the event anyone is using this thing, let me know if you run into any issues with single game boxscores.
 
 There's not much else you can do besides look at today's games. You can use the date selector to take a peek at other days. As mentioned previously, sizing is off so in instances where there are not many games the sizing will look absurd...
 
-![showing off the date button](imgs/PuckTUIdate.png)
 
-![Schedule View](imgs/PuckTUIschedule.png)
 
-![Box Scores](imgs/PuckTUIboxscore.png)
+![Schedule View](imgs/TUISchedule.png)
 
-The TUI now uses an SQLite3 database internally. In order to track players attempting to query a full teams roster would take exceptionally long. The database also removes any issues if a connection error was undergone when querying these players.
+![Box Scores](imgs/TUIGames.png)
 
-**Note:** Yes the color of the date box is gross. It's for testing purposes :).
+The TUI now uses an SQLite3 database internall, in order to track players. Attempting to query a full teams roster would take exceptionally long, multiply that one team by the amount of team's playing, and you run into a lot of issues. The database also removes any issues if a connection error was undergone when querying these players.
+
+
 
 ## Install and Run
 
@@ -62,7 +62,9 @@ The config file must be updated to point to the correct location. There is no se
 
 You can keep the config file as-is but you must set your `$PYTHONPATH` to point to the correct location.
 
-Finally, run it.
+**Note**: The current implementation requires user to download a lot of data. The reason for this is we don't have to run an expensive IO query for a lot of data. The data downloaded consists of players, teams, season stats for both players and teams. It's imperative that you have a solid internet connection before first start up. If there is an exception during initialization, delete the database file and run it again. It can take several minutes for setup to complete. I would recommend running it in a side terminal and leaving it in the background.
+
+To actually run it.
 
 `python3 puck/__main__.py`
 

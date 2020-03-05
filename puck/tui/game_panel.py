@@ -1,11 +1,13 @@
-import urwid
 import asyncio
-import arrow
 from copy import copy
+
+import arrow
+import urwid
 from additional_urwid_widgets import DatePicker, MessageDialog
-from puck.utils import batch_game_create, batch_game_update
+
 from puck.games import get_game_ids
-from puck.tui.tui_utils import gametime_text_widget, box_wrap, SelectableText
+from puck.tui.tui_utils import SelectableText, box_wrap, gametime_text_widget
+from puck.utils import batch_game_create, batch_game_update
 
 
 class GamePanel(urwid.WidgetWrap):

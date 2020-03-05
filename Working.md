@@ -1,18 +1,20 @@
 # Puck TODO List
 Outline of what needs to be done for a stable Puck
 
-### In Progress  
-- **Teams.py**
-  - [ ] Documentation
-- **Games.py**
-  - [ ] Documentation
-- **GamesHandler.py**
-  - [ ] Documentation
-- **Utils.py**
-  - [ ] Rework request to properly handle HTTP status codes and raise proper errors.
-  - [ ] Documentation
+### In Progress
+- **Teams**
+  - Documentation
+- **Players**
+  - Flesh out implementation
+  - Documentation
+- **Games**
+  - Documentation
+- **GamesHandler**
+  - Documentation
+- **Utils**
+  - Documentation
 - **TUI**
-  - [ ] Implement Games display page
+  - Implement Single Game display
 
 ### Future
 - **TUI**

@@ -8,9 +8,9 @@ import aiohttp
 
 import puck.constants as const
 import puck.database.db_constants as db_const
-import puck.parser as parser
+from puck.dispatcher import Dispatch
 from puck.urls import Url
-from puck.utils import async_request
+from puck.utils import async_request, ProgressBar
 
 
 def undefined_tables(db_conn):
@@ -51,126 +51,176 @@ def create_base_triggers(db_conn):
 
 async def populate_initial_tables(db_conn):
     """Async requests for Teams, Team rosters, and Players."""
+    # NHL and AHL league ids/names
+    for query in db_const.PRIMARY_DATA:
+        db_conn.execute(query)
+
+    num_workers = 5
+
+    progress_bar = ProgressBar(end=1000)
 
     team_id_q = asyncio.Queue()
     team_r_q = asyncio.Queue()
-    player_id_q = asyncio.Queue(12)
+    player_id_q = asyncio.Queue(30)
 
     tasks = []
     async with aiohttp.ClientSession() as session:
         # create workers
-        for i in range(3):
+        for i in range(num_workers):
             tasks.append(
                 asyncio.create_task(
-                    team_worker(team_id_q, session, db_conn, team_r_q)
+                    generic_worker(
+                        team_id_q, session, db_conn, team_r_q, progress_bar
+                    )
                 )
             )
-
-        for i in range(3):
             tasks.append(
                 asyncio.create_task(
-                    roster_worker(team_r_q, session, db_conn, player_id_q)
+                    generic_worker(
+                        player_id_q, session,
+                        db_conn, pb=progress_bar
+                    )
                 )
             )
-
-        for i in range(3):
             tasks.append(
                 asyncio.create_task(
-                    player_worker(player_id_q, session, db_conn)
+                    generic_worker(
+                        team_r_q, session, db_conn, player_id_q, progress_bar
+                    )
                 )
             )
 
         # process team ids
         for _id in const.TEAM_ID.values():
-            team_id_q.put_nowait(_id)
+            team_id_q.put_nowait(Dispatch.team_info(_id))
+            team_id_q.put_nowait(Dispatch.team_season(_id, 20172018))
+            team_id_q.put_nowait(Dispatch.team_season(_id, 20182019))
+            team_id_q.put_nowait(Dispatch.team_season(_id, 20192020))
+
         # end of data indicators
-        team_id_q.put_nowait(None)
-        team_id_q.put_nowait(None)
-        team_id_q.put_nowait(None)
+        for i in range(num_workers):
+            team_id_q.put_nowait(Dispatch.empty('TEAM'))
 
         await asyncio.gather(*tasks, return_exceptions=False)
 
+    progress_bar.completed()
 
-async def team_worker(queue, session, db_conn, result_queue):
+
+async def generic_worker(queue, session, db_conn, result_queue=None, pb=None):
+    """
+    Generic Worker is a replacement of the old worker functions.
+    It handles its queues and result_queues based on the dispatcher.
+
+    All queues pass a Dispatch object with the required info.
+    """
     while True:
-        waiting = await queue.get()
-        # reached the end of the queue
-        if waiting is None:
-            # propogate the indicator
-            await result_queue.put(None)
-            if queue.empty():
-                print('Team table finished.')
+        dispatcher = await queue.get()
+
+        # handle end of data propogation
+        if dispatcher.name in ['TEAM', 'ROSTER', 'PLAYER']:
+            if result_queue is not None:
+                if dispatcher.name == 'TEAM':
+                    await result_queue.put(Dispatch.empty('ROSTER'))
+                else:
+                    await result_queue.put(Dispatch.empty('PLAYER'))
             break
 
-        team = await async_request(
-            Url.TEAMS, session,
-            url_mods={'team_id': waiting}
+        data = await async_request(
+            dispatcher.url, session, {dispatcher.id_type: dispatcher.id},
+            dispatcher.params
         )
-        await parse_and_commit_team(team, db_conn, result_queue)
-        # print(f'Finished Team: {waiting}')
+
+        # Handle the dispatcher type based on name
+        if dispatcher.name == 'team_season_stats':
+            # dedicated function to handle complexity
+            handle_team_season(db_conn, data, dispatcher)
+            pb.increment(2)
+        elif dispatcher.name == 'roster':
+            parsed_data = dispatcher.parser(data)
+            for person in parsed_data:
+                await result_queue.put(
+                    Dispatch.player_info(person)
+                )
+        elif dispatcher.name == 'team_info':
+            parsed_data = dispatcher.parser(data)
+            insert_stmt(db_conn, dispatcher.table, parsed_data)
+            await result_queue.put(
+                Dispatch.roster(parsed_data['team_id'])
+            )
+            pb.increment()
+        elif dispatcher.name == 'player_info':
+            parsed_data = dispatcher.parser(data)
+            insert_stmt(db_conn, dispatcher.table, parsed_data)
+            await handle_player_season(db_conn, dispatcher, parsed_data['position'], session)  # noqa
+            pb.increment()
 
 
-async def roster_worker(queue, session, db_conn, result_queue):
-    while True:
-        waiting = await queue.get()
-        if waiting is None:
-            # propogate indicator
-            await result_queue.put(None)
+def handle_team_season(db_conn, data, dispatcher):
+    """This is a complex case for populating initial tables."""
+    # we need the season number nested in the dispatcher params
+    season = dispatcher.params['season']
+    # the parser will have the ids embedded
+    parsed_data = dispatcher.parser(
+        data, True, season
+    )
+
+    # pop that data out so we can insert into teams_season
+    ts_data = parsed_data.pop('team_season')
+    insert_stmt(db_conn, dispatcher.table, ts_data)
+
+    # get the resultant unique_id for the second insert
+    resp = select_stmt(
+        db_conn, dispatcher.table, columns=['unique_id'],
+        where=[(dispatcher.id_type, dispatcher.id), ('season', season)]
+    )
+
+    uid = resp[0]['unique_id']
+
+    parsed_data['unique_id'] = uid
+
+    # insert into team_season_stats
+    insert_stmt(db_conn, 'team_season_stats', parsed_data)
+
+
+async def handle_player_season(db_conn, dispatcher, pos, session):
+    """Complex Handling of dealing with player stats"""
+
+    # insert to the proper table
+    if pos == 'G':
+        new_disp = Dispatch.goalie_stats(dispatcher.id)
+    else:
+        new_disp = Dispatch.skater_stats(dispatcher.id)
+
+    data = await async_request(
+        new_disp.url, session, {new_disp.id_type: new_disp.id}
+    )
+
+    data = data['stats'][0]['splits']
+
+    for year in range(len(data) - 1, -1, -1):
+        if int(data[year]['season']) not in [20182019, 20192020]:
             break
+        parsed_data = new_disp.parser(data[year])
 
-        roster = await async_request(
-            Url.TEAM_ROSTER, session,
-            url_mods={'team_id': waiting}
+        season_data = parsed_data.pop('season_data')
+        season_data['player_id'] = dispatcher.id
+        season = season_data['season']
+
+        insert_stmt(db_conn, 'player_season', season_data)
+
+        resp = select_stmt(
+            db_conn, 'player_season', columns=['unique_id'],
+            where=[
+                (new_disp.id_type, new_disp.id), ('season', season),
+                ('league_name', season_data['league_name']),
+                ('team_name', season_data['team_name'])
+            ]
         )
 
-        await parse_team_roster(roster, result_queue)
-        # print(f'Finished Roster: {waiting}')
-        # print(queue)
+        uid = resp[0]['unique_id']
+        parsed_data['unique_id'] = uid
 
-
-async def player_worker(queue, session, db_conn):
-    while True:
-        waiting = await queue.get()
-        if waiting is None:
-            if queue.empty():
-                print('Player table finished.')
-            break
-
-        player = await async_request(
-            Url.PLAYERS, session,
-            url_mods={'player_id': waiting}
-        )
-
-        await parse_and_commit_player(player, db_conn)
-        # print(f'Finished Player: {waiting}')
-
-
-async def parse_and_commit_player(data, db_conn):
-    parsed_data = parser.player_info_parser(data)
-
-    try:
-        insert_stmt(db_conn, 'player', parsed_data)
-    except sqlite3.IntegrityError as ierr:
-        # generally means this record already exists
-        return
-    except Exception as err:
-        print(err)
-        print(f'Data = {parsed_data}')
-
-
-async def parse_team_roster(data, queue):
-    for pers in data['roster']:
-        await queue.put(pers['person']['id'])
-
-
-async def parse_and_commit_team(data, db_conn, result_queue):
-    parsed_data = parser.team_info_parser(data)
-
-    insert_stmt(db_conn, 'team', parsed_data)
-
-    # team.team_id is a FK for the players table therefore must be committed
-    # prior to inserting players
-    await result_queue.put(int(parsed_data['team_id']))
+        insert_stmt(db_conn, new_disp.table, parsed_data)
 
 
 async def batch_update_db(_ids, db_conn, dispatcher):
@@ -178,33 +228,42 @@ async def batch_update_db(_ids, db_conn, dispatcher):
         workers = []
         for _id in _ids:
             workers.append(
-                player_update_db(
-                    db_conn, session, _id, dispatcher
+                update_db(
+                    db_conn, session, dispatcher(_id)
                 )
             )
 
         await asyncio.gather(*workers)
 
 
-async def player_update_db(db_conn, session, _id, dispatcher, params=None):
-    """Async player update function.
+async def update_db(db_conn, session, dispatcher, params=None):
+    """Async update function.
 
     Args:
         db_conn (sqlite3.Connection): sqlite Connection
         session (aiohttp.ClientSession): aiohttp ClientSession
-        _id (int): id can be game, player, team etc.
         dispatcher (Dispatch): Dispatch object holding all relevant details
         params (dict, optional): Url parameters. Defaults to None.
     """
 
     data = await async_request(
-        dispatcher.url, session, {dispatcher.id_type: _id}, params
+        dispatcher.url, session, {dispatcher.id_type: dispatcher.id}, params
     )
     parsed_data = dispatcher.parser(data)
 
-    update_stmt(
-        db_conn, dispatcher.table, parsed_data, where=(dispatcher.id_type, _id)
+    # check if record is in the table
+    resp = select_stmt(
+        db_conn, dispatcher.table, where=(dispatcher.id_type, dispatcher.id)
     )
+
+    # if no record exists insert instead of update
+    if not resp:
+        insert_stmt(db_conn, dispatcher.table, parsed_data)
+    else:
+        update_stmt(
+            db_conn, dispatcher.table, parsed_data,
+            where=(dispatcher.id_type, dispatcher.id)
+        )
 
 
 def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=None) -> list:  # noqa
@@ -225,6 +284,7 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
         str: A string containing the valid SQL SELECT statement.
     """
     base_str = "SELECT {} FROM {} "
+    values = []
 
     # holds the values for the query
 
@@ -252,18 +312,23 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
             for w in where:
                 # XXX: NO NEED TO PROTECT SQL INJECTION
                 # for each where stmt format the column name and value
-                stmts.append("{} = {}".format(w[0], w[1]))
+                stmts.append("{} = {}".format(w[0], '?'))
+                values.append(w[1])
 
-            base_str += ', '.join(stmts)
+            base_str += ' AND '.join(stmts)
         else:
-            base_str += "{} = {}".format(where[0], where[1])
+            base_str += "{} = {}".format(where[0], '?')
+            values.append(where[1])
 
     if order_by:
         pass
 
     db_conn.row_factory = sqlite3.Row
-
-    return db_conn.execute(base_str).fetchall()
+    try:
+        return db_conn.execute(base_str, tuple(values)).fetchall()
+    except sqlite3.Error as err:
+        print(base_str, values)
+        print(err)
 
 
 def update_stmt(db_conn, table, params, where=None):
@@ -299,8 +364,12 @@ def update_stmt(db_conn, table, params, where=None):
 
         base_str += ", ".join(stmt)
 
-    db_conn.execute(base_str, tuple(data))
-    db_conn.commit()
+    try:
+        db_conn.execute(base_str, tuple(data))
+        db_conn.commit()
+    except sqlite3.Error as err:
+        print(base_str, data)
+        print(err)
 
 
 def insert_stmt(db_conn, table, params):
@@ -325,8 +394,12 @@ def insert_stmt(db_conn, table, params):
 
     base_str = base_str.format(table, ', '.join(cols), values)
 
-    db_conn.execute(base_str, tuple(data))
-    db_conn.commit()
+    try:
+        db_conn.execute(base_str, tuple(data))
+        db_conn.commit()
+    except sqlite3.Error as err:
+        print(base_str, data)
+        print(err)
 
 
 def connect_db() -> sqlite3.Connection:

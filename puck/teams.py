@@ -1,12 +1,12 @@
 from collections import UserDict, UserList
 
-from .urls import Url
-from .utils import request
-from .player import GamePlayer, PlayerCollection
+import puck.constants as const
+import puck.database.db_constants as db_const
 import puck.parser as parser
 from puck.database.db import select_stmt
-import puck.database.db_constants as db_const
-import puck.constants as const
+from puck.player import GamePlayer, PlayerCollection
+from puck.urls import Url
+from puck.utils import request
 
 
 class TeamIDException(Exception):
@@ -47,8 +47,8 @@ class BaseTeam(object):
 
         # get data from internal database
         team_data = select_stmt(
-            db_conn, 'team', db_const.TableColumns.BASE_GAME_COLS,
-            where=[('team_id', team_id)]
+            db_conn, 'team', db_const.TableColumns.BASE_TEAM_CLASS,
+            where=('team_id', team_id)
         )
 
         # create attributes
@@ -111,7 +111,7 @@ class BannerTeam(BaseTeam):
         self.game_id = game_id
 
         # parse the game data
-        parsed_data = parser.teams_skater_stats_parser(
+        parsed_data = parser.teams_skater_stats(
             game_info, self.team_type, False
         )
 
@@ -123,7 +123,7 @@ class BannerTeam(BaseTeam):
         if not game_info:
             game_info = request(Url.GAME, url_mods={'game_id': game_id})
 
-        parsed_data = parser.teams_skater_stats_parser(
+        parsed_data = parser.teams_skater_stats(
             game_info, self.team_type, False
         )
 
@@ -156,7 +156,7 @@ class FullStatsTeam(BaseTeam):
         creation will fail.
     """
 
-    def __init__(self, game, game_id, team_type, game_info=None):
+    def __init__(self, game, game_id, team_type, data=None):
         """Constructor for GameStatsTeam
 
         Args:
@@ -180,12 +180,12 @@ class FullStatsTeam(BaseTeam):
             raise InvalidTeamType
 
         # if the game data was passed to the constructor use that
-        if not game_info:
+        if not data:
             # request the game data
-            game_info = request(Url.GAME, url_mods={'game_id': game_id})
+            data = request(Url.GAME, url_mods={'game_id': game_id})
 
         # get the teams id number
-        team_id = game_info['gameData']['teams'][team_type]['id']
+        team_id = data['gameData']['teams'][team_type]['id']
 
         # Call the parent class constructor
         super().__init__(team_id, game.db_conn)
@@ -195,8 +195,8 @@ class FullStatsTeam(BaseTeam):
         self.game_id = game_id
 
         # parse the data
-        parsed_data = parser.teams_skater_stats_parser(
-            game_info, self.team_type, True
+        parsed_data = parser.teams_skater_stats(
+            data, self.team_type, True
         )
 
         # set attributes
@@ -205,46 +205,57 @@ class FullStatsTeam(BaseTeam):
 
         # PeriodStats object for easier referencing
         self.periods = PeriodStats(
-            game_info['liveData']['linescore']['periods'], team_type
+            data['liveData']['linescore']['periods'], team_type
         )
 
         # ShootOutStats object for easier referencing
-        if game_info['liveData']['linescore']['hasShootout']:
+        if data['liveData']['linescore']['hasShootout']:
             self.shootout = ShootoutStats(
-                goals=game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores'],  # noqa
-                attempts=game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
+                goals=data['liveData']['linescore']['shootoutInfo'][team_type]['scores'],  # noqa
+                attempts=data['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
             )
         else:
             self.shootout = ShootoutStats()
 
-        id_list = game_info['liveData']['boxscore']['teams'][team_type]['goalies']  # noqa
-        id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['skaters'])  # noqa
-        id_list.extend(game_info['liveData']['boxscore']['teams'][team_type]['scratches'])  # noqa
+        self.id_list = data['liveData']['boxscore']['teams'][team_type]['goalies']  # noqa
+        self.id_list.extend(data['liveData']['boxscore']['teams'][team_type]['skaters'])  # noqa
+        self.id_list.extend(data['liveData']['boxscore']['teams'][team_type]['scratches'])  # noqa
+
+        # wait to create the actual player objects
+        self.players = None
+
+    def init_players(self, data=None):
+        """Utility function for explicit control of expensive logic.
+        """
+        if self.players:
+            return
 
         self.players = PlayerCollection(
-            self, id_list, _class=GamePlayer
+            self, self.id_list, GamePlayer
         )
 
-    def update_data(self, game_info=None):
+        self.players.create_players(data)
+
+    def update_data(self, data=None):
         """Updates an object using fresh data.
 
         Args:
-            game_info (dict, optional): JSON API response represented as
+            data (dict, optional): JSON API response represented as
                                         a dictionary. Defaults to None.
         """
 
-        if not game_info:
-            game_info = request(Url.GAME, url_mods={'game_id': game_id})
+        if not data:
+            data = request(Url.GAME, url_mods={'game_id': game_id})
 
-        _status_code = int(game_info['gameData']['status']['statusCode'])
+        _status_code = int(data['gameData']['status']['statusCode'])
 
         # NOTE: This check could fail if the game status code
         #       is updated before this.
-        if _status_code in const.GAME_STATUS['Preview'] and self._game.game_status in const.GAME_STATUS['Preview']:  # noqa
+        if _status_code in const.GAME_STATUS['Preview'] and self.game.game_status in const.GAME_STATUS['Preview']:  # noqa
             return
 
-        parsed_data = parser.teams_skater_stats_parser(
-            game_info, self.team_type, True
+        parsed_data = parser.teams_skater_stats(
+            data, self.team_type, True
         )
 
         for key, val in parsed_data.items():
@@ -256,14 +267,19 @@ class FullStatsTeam(BaseTeam):
                     that has not been set.'
                 )
 
+        # we protect against this case in players.update_data
+        # but no need to waste computation
+        if self.players:
+            self.players.update_data(data)
+
         self.periods.update_data(
-            game_info['liveData']['linescore']['periods'],
+            data['liveData']['linescore']['periods'],
             self.team_type
         )
 
-        if game_info['liveData']['linescore']['hasShootout']:
-            self.shootout.goals = game_info['liveData']['linescore']['shootoutInfo'][team_type]['scores']  # noqa
-            self.shootout.attempts = game_info['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
+        if data['liveData']['linescore']['hasShootout']:
+            self.shootout.goals = data['liveData']['linescore']['shootoutInfo'][team_type]['scores']  # noqa
+            self.shootout.attempts = data['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
 
 
 class PeriodStats(UserList):
@@ -278,13 +294,7 @@ class PeriodStats(UserList):
         in this class.
 
     Attributes:
-        first (Period): Contains first period stats
-        second (Period): Contains second period stats
-        third (Period): Contains third period stats
-        ot (Period): Contains fourth period stats
-
-    TODO:
-        Model playoffs better.
+        Unsure lol.
     """
 
     def __init__(self, periods, team_type):
@@ -327,13 +337,13 @@ class Period(object):
     def __init__(self, name, data):
         self.name = name
 
-        parsed_data = parser.period_parser(data)
+        parsed_data = parser.period(data)
 
         for key, val in parsed_data.items():
             setattr(self, key, val)
 
     def update_data(self, data):
-        parsed_data = parser.period_parser(data)
+        parsed_data = parser.period(data)
 
         for key, val in parsed_data.items():
             if hasattr(self, key):

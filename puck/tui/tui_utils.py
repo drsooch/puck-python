@@ -1,7 +1,7 @@
 import urwid
 
 
-def gametime_text_widget(game):
+def gametime_text_widget(game) -> urwid.Widget:
     """Helper function to generate the Game Time Text Widget"""
     if game.is_preview:
         time = urwid.Text(game.start_time, align='center')
@@ -28,26 +28,19 @@ def gametime_text_widget(game):
     return time
 
 
-def box_wrap(widget, rows):
+def box_wrap(widget, rows) -> urwid.BoxAdapter:
     """Helper function wrapping a widget in a Filler and then Box Adapter."""
     return urwid.BoxAdapter(
         urwid.Filler(widget), rows
     )
 
 
-def long_strf(date):
+def long_strf(date) -> str:
     return date.strftime('%A %B %d, %Y')
 
 
-def short_strf(date):
+def short_strf(date) -> str:
     return date.strftime('%a %b %d, %Y')
-
-
-class HButton(urwid.Button):
-    """Gonna make this highlight the full cell. Eventually"""
-
-    def __init__(self, label, on_press=None, user_data=None):
-        super().__init__(label, on_press, user_data)
 
 
 class SelectableText(urwid.WidgetWrap):
