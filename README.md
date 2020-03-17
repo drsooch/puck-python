@@ -44,13 +44,13 @@ The TUI now uses an SQLite3 database internall, in order to track players. Attem
 
 ## Install and Run
 
-If for whatever reason you actually want to take the time to download and use this thing. Clone this repo.
-
-`git clone https://github.com/drsooch/puck.git`
-
 Create a Python virtual environment (3.7>)
 
 `python3 -m venv venv_dir`
+
+If for whatever reason you actually want to take the time to download and use this thing. Clone this repo.
+
+`git clone https://github.com/drsooch/puck.git`
 
 Place the source files in under a directory in `venv_dir` whatever that may be.
 
@@ -58,17 +58,15 @@ Install any required modules.
 
 `pip3 install -r requirements.txt`
 
-The config file must be updated to point to the correct location. There is no setup.py script yet, so this must be done manually. I currently have `$PYTHONPATH` set in my environment to point to the root `venv_dir` folder.
+The postgresql database MUST be created by you. I have not been able to make it work through using the subprocess module. The createdb command was giving me too much grief. Instead, you must create a database with whatever name you want and preferably under a ROLE that does not require authentication. There is a simple setup script to link the config, database and user together. Run `python3 puck_install.py` and follow the prompts. This is where you will enter the database name and database user name.
 
-You can keep the config file as-is but you must set your `$PYTHONPATH` to point to the correct location.
+There is an SQL dump file provided. This has all of the needed data to get Puck to work. Pipe this file into your created database: `psql myDB < puck_dump.sql`.
 
-**Note**: The current implementation requires user to download a lot of data. The reason for this is we don't have to run an expensive IO query for a lot of data. The data downloaded consists of players, teams, season stats for both players and teams. It's imperative that you have a solid internet connection before first start up. If there is an exception during initialization, delete the database file and run it again. It can take several minutes for setup to complete. I would recommend running it in a side terminal and leaving it in the background.
+**IF YOU WANT UP TO DATE STATS**: You can run puck through its normal route and download the data. The data downloaded consists of players, teams, season stats for both players and teams. It's imperative that you have a solid internet connection before first start up. If there is an exception during initialization, delete the database file and run it again. It can take several minutes for setup to complete. I would recommend running it in a side terminal and leaving it in the background.
 
 To actually run it.
 
 `python3 puck/__main__.py`
-
-On first setup the beginning database files and tables will be created. Please note, there is no excess logic to catch any database or connection issues so this may take a few attempts. (It usually fails on poor connection to the internet.)
 
 The `__main__.py` file will be the eventual executable. It currently only opens the TUI app, change the `if True:` to `False` to get the CLI
 

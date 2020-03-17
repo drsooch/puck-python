@@ -20,261 +20,321 @@ class TableColumns(Enum):
     ]
 
 
-PLAYER_TABLE = """
-CREATE TABLE "player" (
-    "player_id"     INTEGER NOT NULL UNIQUE,
-    "team_id"       INTEGER NOT NULL,
-    "first_name"    TEXT NOT NULL,
-    "last_name"     TEXT NOT NULL,
-    "number"        TEXT,
-    "position"      TEXT NOT NULL CHECK(
-        "position" == "D" OR
-        "position" == "G" OR
-        "position" == "LW" OR
-        "position" == "RW" OR
-        "position" == "C"
-        ),
-    "handedness"    TEXT NOT NULL CHECK(
-        "handedness" == "R" OR
-        "handedness" == "L"
-        ),
-    "rookie"        INTEGER CHECK("rookie" == 0 OR "rookie" == 1),
-    "age"           INTEGER,
-    "birth_date"    TEXT,
-    "birth_city"    TEXT,
-    "birth_state"   TEXT,
-    "birth_country" TEXT,
-    "height"        TEXT,
-    "weight"        INTEGER,
-    "last_updated"  TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY("team_id") REFERENCES "team"("team_id"),
-    PRIMARY KEY("player_id")
+LEAGUE_TABLE = """
+CREATE TABLE IF NOT EXISTS league (
+    league_id     INTEGER,
+    league_name   VARCHAR(40) NOT NULL PRIMARY KEY
 );
 """
-
 
 TEAM_TABLE = """
-CREATE TABLE "team" (
-    "team_id"       INTEGER NOT NULL UNIQUE,
-    "full_name"     TEXT NOT NULL,
-    "abbreviation"  TEXT CHECK(length("abbreviation") <= 3),
-    "division"      INTEGER,
-    "conference"    INTEGER,
-    "active"        INTEGER CHECK("active" == 1
-                                    OR "active" == 0
-                                    OR "active" IS NULL),
-    "franchise_id"  INTEGER,
-    "league_name"   TEXT NOT NULL,
-    FOREIGN KEY("league_name") REFERENCES "league"("league_name"),
-    PRIMARY KEY("team_id")
+CREATE TABLE IF NOT EXISTS team (
+    team_id       SMALLINT NOT NULL PRIMARY KEY,
+    full_name     VARCHAR(50) NOT NULL,
+    abbreviation  VARCHAR(3),
+    division      SMALLINT,
+    conference    SMALLINT,
+    active        BOOLEAN,
+    franchise_id  SMALLINT,
+    league_name   VARCHAR(50) NOT NULL REFERENCES league
 );
 """
 
+PLAYER_TABLE = """
+CREATE TABLE IF NOT EXISTS player (
+    player_id     INTEGER NOT NULL PRIMARY KEY,
+    team_id       SMALLINT NOT NULL REFERENCES team,
+    first_name    VARCHAR(30) NOT NULL,
+    last_name     VARCHAR(50) NOT NULL,
+    number        VARCHAR(2),
+    position      VARCHAR(2) NOT NULL CHECK (
+        position IN ('G', 'LW', 'RW', 'D', 'C')
+        ),
+    handedness    VARCHAR(1) NOT NULL CHECK(
+        handedness IN ('L', 'R')
+        ),
+    rookie        BOOLEAN,
+    age           SMALLINT,
+    birth_date    VARCHAR(50),
+    birth_city    VARCHAR(50),
+    birth_state   VARCHAR(50),
+    birth_country VARCHAR(50),
+    height        VARCHAR(7),
+    weight        SMALLINT,
+    last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+
 PLAYER_SEASON_TABLE = """
-CREATE TABLE "player_season" (
-    "unique_id"     INTEGER NOT NULL UNIQUE,
-    "player_id"     INTEGER NOT NULL,
-    "season"        INTEGER NOT NULL,
-    "league_id"     INTEGER,
-    "league_name"   TEXT NOT NULL,
-    "team_id"       INTEGER,
-    "team_name"     TEXT NOT NULL,
-    FOREIGN KEY("league_name") REFERENCES "league"("league_name"),
-    FOREIGN KEY("player_id") REFERENCES "player"("player_id"),
-    PRIMARY KEY("unique_id" AUTOINCREMENT)
+CREATE TABLE IF NOT EXISTS player_season (
+    unique_id     SERIAL NOT NULL PRIMARY KEY,
+    player_id     INTEGER NOT NULL REFERENCES player,
+    season        INTEGER NOT NULL,
+    league_id     SMALLINT,
+    league_name   VARCHAR(50) NOT NULL REFERENCES league,
+    team_id       SMALLINT,
+    team_name     VARCHAR(50) NOT NULL
 );
 """
 
 SKATER_SEASON_STATS_TABLE = """
-CREATE TABLE "skater_season_stats" (
-    "unique_id"     INTEGER NOT NULL,
-    "time_on_ice"   TEXT,
-    "assists"       INTEGER,
-    "goals"         INTEGER,
-    "points"        INTEGER,
-    "pims"          INTEGER,
-    "shots"         INTEGER,
-    "games"         INTEGER,
-    "hits"          INTEGER,
-    "pp_goals"      INTEGER,
-    "pp_assists"    INTEGER,
-    "pp_points"     INTEGER,
-    "pp_toi"        TEXT,
-    "sh_goals"      INTEGER,
-    "sh_assists"    INTEGER,
-    "sh_points"     INTEGER,
-    "sh_toi"        TEXT,
-    "ev_goals"      INTEGER,
-    "ev_assists"    INTEGER,
-    "ev_points"     INTEGER,
-    "ev_toi"        TEXT,
-    "faceoff_pct"   REAL,
-    "shooting_pct"  REAL,
-    "gwg"           INTEGER,
-    "ot_goals"      INTEGER,
-    "plus_minus"    INTEGER,
-    "blocked"       INTEGER,
-    "shifts"        INTEGER,
-    "last_updated"  TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY("unique_id"),
-    FOREIGN KEY("unique_id") REFERENCES "player_season"("unique_id")
+CREATE TABLE IF NOT EXISTS skater_season_stats (
+    unique_id     INTEGER NOT NULL PRIMARY KEY REFERENCES player_season,
+    time_on_ice   VARCHAR(15),
+    assists       SMALLINT,
+    goals         SMALLINT,
+    points        SMALLINT,
+    pims          SMALLINT,
+    shots         SMALLINT,
+    games         SMALLINT,
+    hits          SMALLINT,
+    pp_goals      SMALLINT,
+    pp_assists    SMALLINT,
+    pp_points     SMALLINT,
+    pp_toi        VARCHAR(15),
+    sh_goals      SMALLINT,
+    sh_assists    SMALLINT,
+    sh_points     SMALLINT,
+    sh_toi        VARCHAR(15),
+    ev_goals      SMALLINT,
+    ev_assists    SMALLINT,
+    ev_points     SMALLINT,
+    ev_toi        VARCHAR(15),
+    faceoff_pct   REAL,
+    shooting_pct  REAL,
+    gwg           SMALLINT,
+    ot_goals      SMALLINT,
+    plus_minus    SMALLINT,
+    blocked       SMALLINT,
+    shifts        SMALLINT,
+    last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
 
 GOALIE_SEASON_STATS_TABLE = """
-CREATE TABLE "goalie_season_stats" (
-    "unique_id"     INTEGER NOT NULL UNIQUE,
-    "time_on_ice"   INTEGER,
-    "shutouts"      INTEGER,
-    "wins"          INTEGER,
-    "losses"        INTEGER,
-    "ot_losses"     INTEGER,
-    "ties"          INTEGER,
-    "saves"         INTEGER,
-    "pp_saves"      INTEGER,
-    "sh_saves"      INTEGER,
-    "ev_saves"      INTEGER,
-    "pp_shots"      INTEGER,
-    "sh_shots"      INTEGER,
-    "ev_shots"      INTEGER,
-    "save_pct"      REAL,
-    "gaa"           REAL,
-    "games"         INTEGER,
-    "games_started" INTEGER,
-    "shots_against" INTEGER,
-    "goals_against" INTEGER,
-    "pp_save_pct"   REAL,
-    "sh_save_pct"   REAL,
-    "ev_save_pct"   REAL,
-    "last_updated"  TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY("unique_id"),
-    FOREIGN KEY("unique_id") REFERENCES "player_season"("unique_id")
+CREATE TABLE IF NOT EXISTS goalie_season_stats (
+    unique_id     INTEGER NOT NULL PRIMARY KEY REFERENCES player_season,
+    time_on_ice   INTEGER,
+    shutouts      SMALLINT,
+    wins          SMALLINT,
+    losses        SMALLINT,
+    ot_losses     SMALLINT,
+    ties          SMALLINT,
+    saves         SMALLINT,
+    pp_saves      SMALLINT,
+    sh_saves      SMALLINT,
+    ev_saves      SMALLINT,
+    pp_shots      SMALLINT,
+    sh_shots      SMALLINT,
+    ev_shots      SMALLINT,
+    save_pct      REAL,
+    gaa           REAL,
+    games         SMALLINT,
+    games_started SMALLINT,
+    shots_against SMALLINT,
+    goals_against SMALLINT,
+    pp_save_pct   REAL,
+    sh_save_pct   REAL,
+    ev_save_pct   REAL,
+    last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
 
 TEAM_SEASON_TABLE = """
-CREATE TABLE "team_season" (
-    "unique_id"     INTEGER NOT NULL UNIQUE,
-    "team_id"       INTEGER NOT NULL,
-    "season"        TEXT NOT NULL,
-    "franchise_id"  INTEGER,
-    "division_id"   INTEGER,
-    "conference_id" INTEGER,
-    PRIMARY KEY("unique_id" AUTOINCREMENT),
-    FOREIGN KEY("team_id") REFERENCES "team"("team_id")
+CREATE TABLE IF NOT EXISTS team_season (
+    unique_id     SERIAL NOT NULL PRIMARY KEY,
+    team_id       INTEGER NOT NULL REFERENCES team,
+    season        INTEGER NOT NULL,
+    franchise_id  SMALLINT,
+    division_id   SMALLINT,
+    conference_id SMALLINT
 );
 """
 
 TEAM_SEASON_STATS_TABLE = """
-CREATE TABLE "team_season_stats" (
-    "unique_id"             INTEGER NOT NULL UNIQUE,
-    "games_played"          INTEGER,
-    "wins"                  INTEGER,
-    "losses"                INTEGER,
-    "ot_losses"             INTEGER,
-    "ties"                  INTEGER,
-    "points"                INTEGER,
-    "pt_pct"                REAL,
-    "goals_for_pg"          REAL,
-    "goals_ag_pg"           REAL,
-    "evgga_ratio"           REAL,
-    "pp_pct"                REAL,
-    "pp_goals_for"          INTEGER,
-    "pp_opp"                INTEGER,
-    "pk_pct"                REAL,
-    "pp_goals_ag"           INTEGER,
-    "shots_for_pg"          REAL,
-    "shots_ag_pg"           REAL,
-    "win_score_first"       REAL,
-    "win_opp_score_first"   REAL,
-    "win_lead_first_per"    REAL,
-    "win_lead_second_per"   REAL,
-    "win_outshoot_opp"      REAL,
-    "win_outshot_by_opp"    REAL,
-    "faceoffs_taken"        INTEGER,
-    "faceoff_wins"          INTEGER,
-    "faceoff_losses"        INTEGER,
-    "faceoff_pct"           REAL,
-    "save_pct"              REAL,
-    "shooting_pct"          REAL,
-    "last_updated"          TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY("unique_id") REFERENCES "team_season"("unique_id"),
-    PRIMARY KEY("unique_id")
-);
-"""
-
-LEAGUE_TABLE = """
-CREATE TABLE "league" (
-    "league_id"     INTEGER,
-    "league_name"   TEXT,
-    PRIMARY KEY("league_name")
+CREATE TABLE IF NOT EXISTS team_season_stats (
+    unique_id             INTEGER NOT NULL PRIMARY KEY REFERENCES team_season,
+    games_played          SMALLINT,
+    wins                  SMALLINT,
+    losses                SMALLINT,
+    ot_losses             SMALLINT,
+    ties                  SMALLINT,
+    points                SMALLINT,
+    pt_pct                REAL,
+    goals_for_pg          REAL,
+    goals_ag_pg           REAL,
+    evgga_ratio           REAL,
+    pp_pct                REAL,
+    pp_goals_for          SMALLINT,
+    pp_opp                SMALLINT,
+    pk_pct                REAL,
+    pp_goals_ag           SMALLINT,
+    shots_for_pg          REAL,
+    shots_ag_pg           REAL,
+    win_score_first       REAL,
+    win_opp_score_first   REAL,
+    win_lead_first_per    REAL,
+    win_lead_second_per   REAL,
+    win_outshoot_opp      REAL,
+    win_outshot_by_opp    REAL,
+    faceoffs_taken        SMALLINT,
+    faceoff_wins          SMALLINT,
+    faceoff_losses        SMALLINT,
+    faceoff_pct           REAL,
+    save_pct              REAL,
+    shooting_pct          REAL,
+    last_updated          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
 
 
-UPDATE_TIME_P_TRIGGER = """
-CREATE TRIGGER update_time_player AFTER UPDATE ON player
+# -------------------------- NOT FIXED --------------------------#
+TEAM_RANKED_SELECT = """SELECT
+    team_id,
+    games_played,
+    wins,
+    RANK() OVER (ORDER BY wins DESC) AS win_rank,
+    losses,
+    RANK() OVER (ORDER BY losses ASC) AS losses_rank,
+    ot_losses,
+    RANK() OVER (ORDER BY ot_losses ASC) AS ot_losses_rank,
+    points,
+    RANK() OVER (ORDER BY points DESC) AS points_rank,
+    pt_pct,
+    RANK() OVER (ORDER BY pt_pct DESC) AS pt_pct_rank,
+    goals_for_pg,
+    RANK() OVER (ORDER BY goals_for_pg DESC) AS goals_for_pg_rank,
+    goals_ag_pg,
+    RANK() OVER (ORDER BY goals_ag_pg ASC) AS goals_ag_pg_rank,
+    evgga_ratio,
+    RANK() OVER (ORDER BY evgga_ratio DESC) AS evgga_ratio_rank,
+    pp_pct,
+    RANK() OVER (ORDER BY pp_pct DESC) AS pp_pct_rank,
+    pp_goals_for,
+    RANK() OVER (ORDER BY pp_goals_for DESC) AS pp_goals_for_rank,
+    pp_opp,
+    RANK() OVER (ORDER BY pp_opp DESC) AS pp_opp_rank,
+    pk_pct,
+    RANK() OVER (ORDER BY pk_pct DESC) AS pk_pct_rank,
+    pp_goals_ag,
+    RANK() OVER (ORDER BY pp_goals_ag ASC) AS pp_goals_ag_rank,
+    shots_for_pg,
+    RANK() OVER (ORDER BY shots_for_pg DESC) AS shots_for_pg_rank,
+    shots_ag_pg,
+    RANK() OVER (ORDER BY shots_ag_pg ASC) AS shots_ag_pg_rank,
+    win_score_first,
+    RANK() OVER (ORDER BY win_score_first DESC) AS win_score_first_rank,
+    win_opp_score_first,
+    RANK() OVER (ORDER BY win_opp_score_first DESC) AS win_opp_score_first_rank,
+    win_lead_first_per,
+    RANK() OVER (ORDER BY win_lead_first_per DESC) AS win_lead_first_per_rank,
+    win_lead_second_per,
+    RANK() OVER (ORDER BY win_lead_second_per DESC) AS win_lead_second_per_rank,
+    win_outshoot_opp,
+    RANK() OVER (ORDER BY win_outshoot_opp DESC) AS win_outshoot_opp_rank,
+    win_outshot_by_opp,
+    RANK() OVER (ORDER BY win_outshot_by_opp DESC) AS win_outshot_by_opp_rank,
+    faceoffs_taken,
+    RANK() OVER (ORDER BY faceoffs_taken DESC) AS faceoffs_taken_rank,
+    faceoff_wins,
+    RANK() OVER (ORDER BY faceoff_wins DESC) AS faceoff_wins_rank,
+    faceoff_losses,
+    RANK() OVER (ORDER BY faceoff_losses ASC) AS faceoff_losses_rank,
+    faceoff_pct,
+    RANK() OVER (ORDER BY faceoff_pct DESC) AS faceoff_pct_rank,
+    save_pct,
+    RANK() OVER (ORDER BY save_pct DESC) AS save_pct_rank,
+    shooting_pct,
+    RANK() OVER (ORDER BY shooting_pct DESC) AS shooting_pct_rank
+    FROM team_season_stats
+        INNER JOIN team_season ON
+        team_season.unique_id = team_season_stats.unique_id
+        AND team_season.season = "20192020"
+        ORDER BY team_season.team_id;"""
+
+
+UT_PLAYER_FUNC_TRIG = """
+CREATE OR REPLACE FUNCTION update_time_player() RETURNS trigger AS
+    $$
     BEGIN
-        UPDATE player SET last_updated = CURRENT_TIMESTAMP
-            WHERE player_id = NEW.player_id;
+        NEW.last_updated = CURRENT_TIMESTAMP;
+        RETURN NEW;
     END;
+    $$ LANGUAGE PLPGSQL;
+
+CREATE TRIGGER player_last_update
+AFTER UPDATE ON player
+EXECUTE PROCEDURE update_time_player();
 """
 
-UPDATE_TIME_TS_TRIGGER = """
-CREATE TRIGGER update_time_team_stats AFTER UPDATE ON team_season_stats
+UT_TS_FUNC_TRIG = """
+CREATE FUNCTION update_time_team_stats() RETURNS trigger AS
+    $$
     BEGIN
-        UPDATE team_season_stats SET last_updated = CURRENT_TIMESTAMP
-            WHERE player_id = NEW.player_id;
+        NEW.last_updated = CURRENT_TIMESTAMP;
+        RETURN NEW;
     END;
+    $$ LANGUAGE PLPGSQL;
+
+CREATE TRIGGER ts_stat_last_update
+AFTER UPDATE ON team_season_stats
+EXECUTE PROCEDURE update_time_team_stats();
 """
 
-UPDATE_TIME_GS_TRIGGER = """
-CREATE TRIGGER update_time_goalie_stats AFTER UPDATE ON goalie_season_stats
+UT_GS_FUNC_TRIG = """
+CREATE FUNCTION update_time_goalie_stats() RETURNS trigger AS
+    $$
     BEGIN
-        UPDATE goalie_season_stats SET last_updated = CURRENT_TIMESTAMP
-            WHERE unique_id = NEW.unique_id;
+        NEW.last_updated = CURRENT_TIMESTAMP;
+        RETURN NEW;
     END;
+    $$ LANGUAGE PLPGSQL;
+
+CREATE TRIGGER g_stat_last_update
+AFTER UPDATE ON goalie_season_stats
+EXECUTE PROCEDURE update_time_goalie_stats();
 """
 
-UPDATE_TIME_SS_TRIGGER = """
-CREATE TRIGGER update_time_skater_stats AFTER UPDATE ON skater_season_stats
+UT_SS_FUNC_TRIG = """
+CREATE FUNCTION update_time_skater_stats() RETURNS trigger AS
+    $$
     BEGIN
-        UPDATE skater_season_stats SET last_updated = CURRENT_TIMESTAMP
-            WHERE unique_id = NEW.unique_id;
+        NEW.last_updated = CURRENT_TIMESTAMP;
+        RETURN NEW;
     END;
+    $$ LANGUAGE PLPGSQL;
+
+CREATE TRIGGER s_stats_last_update
+AFTER UPDATE ON skater_season_stats
+EXECUTE PROCEDURE update_time_skater_stats();
 """
 
-COMPUTE_POINTS_INS_TRIGGER = """
-CREATE TRIGGER compute_points_ins AFTER INSERT ON skater_season_stats
-BEGIN
-    UPDATE skater_season_stats
-        SET ev_points  = (new.points - new.pp_points - new.sh_points),
-            ev_goals   = (new.goals - new.pp_goals - new.sh_goals),
-            pp_assists = (new.pp_points - new.pp_goals),
-            ev_assists = (ev_points - ev_goals),
-            sh_assists = (new.sh_points - new.sh_goals)
-        WHERE
-            unique_id = new.unique_id;
-END;
-"""
 
-COMPUTE_POINTS_UPD_TRIGGER = """
-CREATE TRIGGER compute_points_upd AFTER UPDATE ON skater_season_stats
-BEGIN
-    UPDATE skater_season_stats
-        SET ev_points  = (new.points - new.pp_points - new.sh_points),
-            ev_goals   = (new.goals - new.pp_goals - new.sh_goals),
-            pp_assists = (new.pp_points - new.pp_goals),
-            ev_assists = (ev_points - ev_goals),
-            sh_assists = (new.sh_points - new.sh_goals)
-        WHERE
-            unique_id = new.unique_id;
-END;
+CP_PTS_FUNC_TRIG = """
+CREATE FUNCTION compute_points() RETURNS trigger AS
+    $$
+    BEGIN
+        NEW.ev_points  = (NEW.points - NEW.pp_points - NEW.sh_points);
+        NEW.ev_goals   = (NEW.goals - NEW.pp_goals - NEW.sh_goals);
+        NEW.pp_assists = (NEW.pp_points - NEW.pp_goals);
+        NEW.ev_assists = (NEW.ev_points - NEW.ev_goals);
+        NEW.sh_assists = (NEW.sh_points - NEW.sh_goals);
+        RETURN NEW;
+    END;
+    $$ LANGUAGE PLPGSQL;
+
+CREATE TRIGGER comp_points_ins
+AFTER INSERT ON skater_season_stats
+EXECUTE PROCEDURE compute_points();
+
+CREATE TRIGGER comp_points_upd
+AFTER UPDATE ON skater_season_stats
+EXECUTE PROCEDURE compute_points();
 """
 
 BASE_TABLES = {
-    'league': LEAGUE_TABLE,
-    'player': PLAYER_TABLE, 'team': TEAM_TABLE,
+    'league': LEAGUE_TABLE, 'team': TEAM_TABLE, 'player': PLAYER_TABLE,
     'player_season': PLAYER_SEASON_TABLE,
     'skater_season_stats': SKATER_SEASON_STATS_TABLE,
     'goalie_season_stats': GOALIE_SEASON_STATS_TABLE,
@@ -283,13 +343,12 @@ BASE_TABLES = {
 }
 
 BASE_TRIGGERS = [
-    UPDATE_TIME_P_TRIGGER, UPDATE_TIME_TS_TRIGGER, UPDATE_TIME_SS_TRIGGER,
-    UPDATE_TIME_GS_TRIGGER, COMPUTE_POINTS_INS_TRIGGER,
-    COMPUTE_POINTS_UPD_TRIGGER
+    UT_GS_FUNC_TRIG, UT_PLAYER_FUNC_TRIG, UT_SS_FUNC_TRIG,
+    UT_TS_FUNC_TRIG, CP_PTS_FUNC_TRIG
 ]
 
 
-GET_TABLES = """SELECT tbl_name FROM sqlite_master WHERE type = 'table'"""
+GET_TABLES = """SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"""
 PRIMARY_DATA = [
     """INSERT INTO league(league_id, league_name) VALUES (133, "NHL");""",
     """INSERT INTO league(league_id, league_name) VALUES (153, "AHL");"""

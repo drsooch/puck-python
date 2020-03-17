@@ -18,17 +18,7 @@ class BasePlayer(object):
         resp = select_stmt(
             self.db_conn, 'player', db_const.TableColumns.BASE_PLAYER_CLASS,
             where=('player_id', self.player_id)
-        )
-
-        try:
-            resp = resp[0]
-        except Exception as exc:
-            print(player_id)
-            print(exc)
-            print(dir(resp))
-            print(resp)
-            while True:
-                pass
+        )[0]
 
         # set the attributes from the keys
         for key in resp.keys():
@@ -59,14 +49,15 @@ class GamePlayer(BasePlayer):
                 setattr(self, key, val)
             else:
                 raise AttributeError(
-                    f'Player Update received an attribute {key} \
-                    that has not been set.'
+                    f'Player Update received an attribute {key} of type \
+                    {type(key)} that has not been set. {dir(self)} \
+                    ID = {self.player_id}'
                 )
 
 
 class FullPlayer(BasePlayer):
-    def __init__(self, db_conn, player_id, data=None):
-        super().__init__(db_conn, player_id=player_id, data=data)
+    def __init__(self, db_conn, player_id, parsed_data=None):
+        super().__init__(db_conn, player_id=player_id, parsed_data=parsed_data)
 
     def update_data(self, data):
         pass
@@ -80,6 +71,8 @@ class PlayerCollection(object):
         self._class = _class
         self.players_created = False
         self.players = []
+        self.skaters = []
+        self.goalies = []
 
         team_roster = select_stmt(
             self.db_conn, 'player', columns=['player_id'],
@@ -136,9 +129,17 @@ class PlayerCollection(object):
 
             # if a player is scratched parser returns None
             if pd is not None:
-                self.players.append(
-                    self._class(self.db_conn, player, player_data)
-                )
+                player_obj = self._class(self.db_conn, player, pd)
+
+                # keep index pointers for each player object in self.players
+                if player_obj.position == 'G':
+                    self.goalies.append(len(self.players))
+                else:
+                    self.skaters.append(len(self.players))
+
+                self.players.append(player_obj)
+
+        self.players_created = True
 
     def update_data(self, data):
 

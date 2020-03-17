@@ -5,7 +5,7 @@ import arrow
 import urwid
 from additional_urwid_widgets import IndicativeListBox
 
-from puck.database.db import batch_update_db
+from puck.database.db import batch_update_db, get_ranked_stats
 from puck.dispatcher import Dispatch
 from puck.games import BaseGame, get_game_ids
 from puck.tui.tui_utils import (BaseContext, BaseDisplay, SelectableText,
@@ -446,7 +446,13 @@ class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
 
     def build_display(self) -> urwid.LineBox:
         game_time = gametime_text_widget(self.game)
-        home = urwid.Text(self.game.home.full_name, 'center')
-        away = urwid.Text(self.game.away.full_name, 'center')
+        home = urwid.Text(self.game.home.full_name.upper(), 'center')
+        away = urwid.Text(self.game.away.full_name.upper(), 'center')
 
-        return game_time
+        pile = urwid.Pile([urwid.Divider('-'), home, game_time, away,urwid.Divider('-')])
+        return pile
+
+    def _build_preview(self, title) -> urwid.LineBox:
+        team_stats = get_ranked_stats(self.db_conn, None)
+        pass
+

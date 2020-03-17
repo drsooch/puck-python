@@ -1,21 +1,24 @@
 import asyncio
 import os
-import sqlite3
 import sys
 from enum import Enum
 
 import aiohttp
+import psycopg2 as pg
+import psycopg2.extras as pgext
+import psycopg2.sql as pgsql
 
 import puck.constants as const
 import puck.database.db_constants as db_const
 from puck.dispatcher import Dispatch
 from puck.urls import Url
-from puck.utils import async_request, ProgressBar
+from puck.utils import ProgressBar, async_request
 
 
-def undefined_tables(db_conn):
+def undefined_tables(cursor):
     """Integrity check to see if this is first install or Data is Malformed"""
-    result = db_conn.execute(db_const.GET_TABLES).fetchall()
+    cursor.execute(db_const.GET_TABLES)
+    result = cursor.fetchall()
 
     undefined = list(db_const.BASE_TABLES.keys())
     for row in result:
@@ -27,26 +30,18 @@ def undefined_tables(db_conn):
     return undefined
 
 
-def create_base_tables(db_conn, to_create):
+def create_base_tables(cursor, to_create):
     """Base Table creation script."""
 
     for t in to_create:
-        db_conn.execute(db_const.BASE_TABLES[t])
-
-    db_conn.commit()
+        cursor.execute(db_const.BASE_TABLES[t])
 
 
-def create_base_triggers(db_conn):
+def create_base_triggers(cursor):
     """Base Trigger creation script."""
 
     for t in db_const.BASE_TRIGGERS:
-        try:
-            db_conn.execute(t)
-        # if the trigger exists ignore error
-        except sqlite3.ProgammingError as err:
-            print(f'Trigger already exists.')
-            continue
-    db_conn.commit()
+        cursor.execute(t)
 
 
 async def populate_initial_tables(db_conn):
@@ -283,7 +278,8 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
     Returns:
         str: A string containing the valid SQL SELECT statement.
     """
-    base_str = "SELECT {} FROM {} "
+    base_str = pgsql.SQL("SELECT {} FROM {} {} ")
+    table = pgsql.Identifier(table)
     values = []
 
     # holds the values for the query
@@ -293,12 +289,10 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
         # if using TableColumns Enum
         if isinstance(columns, db_const.TableColumns):
             columns = columns.value
-        columns = ', '.join(columns)
-    else:
-        columns = '*'
 
-    # format the base_str query string with columns and table
-    base_str = base_str.format(columns, table)
+        columns = pgsql.SQL(', ').join(map(pgsql.Identifier, columns))
+    else:
+        columns = pgsql.SQL('*')
 
     # TODO
     if joins:
@@ -306,29 +300,37 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
 
     # where values are formatted here
     if where:
-        base_str += "WHERE "
+        where_clause = pgsql.SQL("WHERE {}")
         stmts = []
         if isinstance(where, list):
             for w in where:
-                # XXX: NO NEED TO PROTECT SQL INJECTION
-                # for each where stmt format the column name and value
-                stmts.append("{} = {}".format(w[0], '?'))
+                stmts.append(pgsql.SQL("{} = {}").format(
+                    pgsql.Identifier(w[0]), pgsql.Placeholder()
+                ))
                 values.append(w[1])
-
-            base_str += ' AND '.join(stmts)
+            stmts = pgsql.SQL(", ").join(stmts)
         else:
-            base_str += "{} = {}".format(where[0], '?')
+            stmts = pgsql.SQL("{} = {}").format(
+                pgsql.Identifier(where[0]), pgsql.Placeholder())
             values.append(where[1])
+
+        where_clause = where_clause.format(stmts)
+    else:
+        where_clause = pgsql.SQL('')
 
     if order_by:
         pass
 
-    db_conn.row_factory = sqlite3.Row
-    try:
-        return db_conn.execute(base_str, tuple(values)).fetchall()
-    except sqlite3.Error as err:
-        print(base_str, values)
-        print(err)
+    base_str = base_str.format(columns, table, where_clause)
+
+    # try:
+    cursor = db_conn.cursor()
+    cursor.execute(base_str, tuple(values))
+
+    return cursor.fetchall()
+    # except pg.Error as err:
+    # print(base_str, values)
+    # print(err)
 
 
 def update_stmt(db_conn, table, params, where=None):
@@ -341,35 +343,56 @@ def update_stmt(db_conn, table, params, where=None):
                                         clauses. Defaults to None.
     """
 
-    base_str = "UPDATE {} SET ".format(table)
+    base_str = pgsql.SQL("UPDATE {} SET {} {}")
     data = []
-    stmt = []
+    stmts = []
+
+    table = pgsql.Identifier(table)
 
     for key, val in params.items():
-        stmt.append('{} = {}'.format(key, "?"))
+        stmts.append(
+            pgsql.SQL("{} = {}").format(
+                pgsql.Identifier(key), pgsql.Placeholder()
+            )
+        )
         data.append(val)
 
-    base_str += ", ".join(stmt)
+    set_clause = pgsql.SQL(", ").join(stmts)
 
     if where:
-        base_str += " WHERE "
-        stmt.clear()
+        where_clause = pgsql.SQL("WHERE {}")
+        stmts.clear()
         if isinstance(where, list):
             for w in where:
-                stmt.append("{} = {}".format(w[0], "?"))
+                stmts.append(
+                    pgsql.SQL("{} = {}").format(
+                        pgsql.Identifier(w[0]), pgsql.Placeholder()
+                    )
+                )
                 data.append(w[1])
+            stmts = pgsql.SQL(", ").join(stmts)
         else:
-            stmt.append("{} = {}".format(where[0], "?"))
+            stmts = pgsql.SQL("{} = {}").format(
+                pgsql.Identifier(where[0]), pgsql.Placeholder()
+            )
             data.append(where[1])
 
-        base_str += ", ".join(stmt)
+        where_clause = where_clause.format(stmts)
+    else:
+        where_clause = pgsql.SQL('')
 
-    try:
-        db_conn.execute(base_str, tuple(data))
-        db_conn.commit()
-    except sqlite3.Error as err:
-        print(base_str, data)
-        print(err)
+    base_str = base_str.format(table, set_clause, where_clause)
+    # try:
+    cursor = db_conn.cursor()
+    cursor.mogrify(base_str, tuple(data))
+    cursor.execute(base_str, tuple(data))
+
+    db_conn.commit()
+    # except pg.Error as err:
+    #     # from puck.debug import debug
+    #     # debug('update_stmt.txt', base_str.as_string(cursor), str(data))
+    #     print(base_str, data)
+    #     print(err)
 
 
 def insert_stmt(db_conn, table, params):
@@ -382,42 +405,53 @@ def insert_stmt(db_conn, table, params):
         columns (TableColumns or List, optional): List of column names,
                 can use TableColumns Enum. Defaults to None.
     """
-    base_str = "INSERT INTO {}({}) VALUES ({})"
+    base_str = pgsql.SQL("INSERT INTO {}({}) VALUES ({})")
 
-    values = ", ".join("?" * len(params))
+    val_placeholder = pgsql.SQL(", ").join(pgsql.Placeholder() * len(params))
 
     data = []
     cols = []
     for key, val in params.items():
-        cols.append(key)
+        cols.append(pgsql.Identifier(key))
         data.append(val)
 
-    base_str = base_str.format(table, ', '.join(cols), values)
+    base_str = base_str.format(
+        pgsql.Identifier(table), pgsql.SQL(", ").join(cols), val_placeholder
+    )
 
-    try:
-        db_conn.execute(base_str, tuple(data))
+# try:
+    cursor = db_conn.cursor()
+    cursor.execute(base_str, tuple(data))
+
+    db_conn.commit()
+# except pg.Error as err:
+    # print(base_str, data)
+    # print(err)
+
+
+def get_ranked_stats(db_conn, table):
+    return db_conn.execute(db_const.TEAM_RANKED_SELECT)
+
+
+def connect_db() -> pg.extensions.connection:
+    # these keys exist at this poioint
+    db_name = os.environ['dbName']
+    db_user = os.environ['dbUser']
+
+    db_conn = pg.connect(
+        database=db_name, user=db_user, cursor_factory=pgext.DictCursor
+    )
+
+    # use with so we close the cursor after scope is left
+    cursor = db_conn.cursor()
+
+    undef_tables = undefined_tables(cursor)
+
+    if undef_tables:
+        create_base_tables(cursor, undef_tables)
+        create_base_triggers(cursor)
         db_conn.commit()
-    except sqlite3.Error as err:
-        print(base_str, data)
-        print(err)
 
-
-def connect_db() -> sqlite3.Connection:
-    # this key always exist if we get this far
-    db_path = os.environ['dbPath']
-
-    # connect to the database
-    db_conn = sqlite3.connect(database=db_path)
-
-    # if the data is new setup the initial DB
-    tables = undefined_tables(db_conn)
-
-    if tables:
-        print('Initializing base tables...')
-
-        create_base_tables(db_conn, tables)
-        create_base_triggers(db_conn)
-        if 'team' in tables or 'player' in tables:
-            asyncio.run(populate_initial_tables(db_conn))
+    cursor.close()
 
     return db_conn
