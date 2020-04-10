@@ -98,7 +98,7 @@ class PuckApp(object):
         self.loop.widget = self.frame
 
     def error_message(self, msg, size=None):
-        ok = urwid.Button(u'OK', on_press=self.destroy)
+        ok = SelectableText(u'OK', on_press=self.destroy)
         if not size:
             size = (self.cols // 3, self.rows // 3)
         self.loop.widget = MessageDialog(
@@ -124,8 +124,8 @@ class PuckApp(object):
         date_pick = DatePicker(
             highlight_prop=("dp_focus", "dp_no_focus")
         )
-        cancel = urwid.Button('Cancel', on_press=self.destroy)
-        select = urwid.Button(
+        cancel = SelectableText('Cancel', on_press=self.destroy)
+        select = SelectableText(
             'Select', on_press=on_press, user_data=date_pick
         )
         btn_grid = urwid.GridFlow([cancel, select], 10, 5, 1, 'center')
@@ -198,14 +198,6 @@ class PuckApp(object):
 
         self.list_walk[0] = self.top_bar
         self.list_walk.set_focus(0)
-
-    def display_progress_bar(self):
-        self.frame.footer = self.progress_bar
-
-    def update_progress_bar(self, percent):
-        if self.footer.original_widget == self.progress_bar:
-            self.progress_bar.set_completion(percent)
-            self.frame.footer = self.footer
 
 
 def create_header() -> urwid.Columns:

@@ -64,8 +64,10 @@ class SelectableText(urwid.WidgetWrap):
         self.text = urwid.Text(self.label, align='center')
         self.wrapped_text = urwid.AttrMap(self.text, None, 'menu_focus')
         self._listbox = urwid.ListBox([self.wrapped_text])
+
         self.callback = on_press
         self.data = user_data
+
         widget = urwid.BoxAdapter(self._listbox, 1)
         super().__init__(widget)
 
@@ -74,9 +76,9 @@ class SelectableText(urwid.WidgetWrap):
             return key
 
         if key == " ":
-            self.callback(self, self.data)
+            self.callback(self)
         if key == "enter":
-            self.callback(self, self.data)
+            self.callback(self)
 
         return key
 

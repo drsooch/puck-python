@@ -6,9 +6,9 @@ I have just finished switching over to Postgresql as the main application databa
 
 ### In Progress
 - **Teams**
+  - TeamSeasonStats -> add some new parser functionality from URL.STANDINGS endpoint (Last 10, Streak etc.)
   - Documentation
 - **Players**
-  - Flesh out implementation
   - Documentation
 - **Games**
   - Documentation
@@ -27,6 +27,8 @@ I have just finished switching over to Postgresql as the main application databa
 - **CLI**
   - Implement remaining handlers for Puck CLI options
   - Documentation
-  - Begin work on deciding new options
+- **Proper Setup Script**
+  - Currently running into issues with having psql set up the database. 
+
 ### Notes
-There are several cases where preseason or playoff games/stats that will cause failure. There are a few noted changes that need to be made, and will be when time allows.
+With the NHL season coming to a halt, there may be hidden bugs that pop up in the future. My testing involves using data queried from live events. Without these events I may miss some functionality i.e. a game preview may provide certain JSON branches that results in an exception during use. 
