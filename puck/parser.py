@@ -12,10 +12,16 @@ import arrow
 import puck.constants as const
 
 
+class InvalidParserException(Exception):
+    pass
+
+
 def game(data) -> defaultdict:
     """
     Parses Url.GAME JSON data. Returns a dictionary of the necessary
     values to create both a Banner and Full Game.
+
+    Url.GAME
 
     Args:
         data (json): Url.Game endpoint json object
@@ -61,6 +67,8 @@ def game(data) -> defaultdict:
 def period(data) -> defaultdict:
     """Parse a single periods data
 
+    Url.GAME
+
     Args:
         data (dict): dict representing a JSON object of a single period
 
@@ -77,6 +85,8 @@ def period(data) -> defaultdict:
 
 def player_info(data) -> defaultdict:
     """Parse generic player info, also providing mapping to database columns.
+
+    Url.PLAYERS
 
     Args:
         data (dict): dict representing a JSON object for player info.
@@ -110,6 +120,8 @@ def player_info(data) -> defaultdict:
 def team_info(data) -> defaultdict:
     """Parse generic team info, provides mapping to database
 
+    Url.TEAMS
+
     Args:
         data (dict): dict representing JSON object of basic team info.
 
@@ -128,7 +140,9 @@ def team_info(data) -> defaultdict:
     parsed_data['active'] = data_copy['active']
     parsed_data['franchise_id'] = data_copy['franchiseId']
 
-    parsed_data['league_name'] = 'NHL'
+    # this must be hardcoded here only data from NHL teams will be
+    # passed to this parser
+    parsed_data['league_id'] = 133
 
     return parsed_data
 
@@ -136,6 +150,8 @@ def team_info(data) -> defaultdict:
 def teams_skater_stats(data, team_type, full_team=False) -> defaultdict:
     """Parser for a teams skater stats for one game.
     Receives the full JSON representation.
+
+    Url.GAME
 
     Args:
         data (dict): dict representing JSON object of skater stats
@@ -171,7 +187,9 @@ def player_stats_game(data) -> defaultdict:
     """Individual Game stat parser. Directs parsing to the proper
     player parser (goalie or skater).
 
-    Receives the IDplayer_id branch.
+    Receives the player_id branch.
+
+    Url.GAME
 
     Args:
         data (dict): dict representing JSON object.
@@ -194,6 +212,8 @@ def goalie_stats_game(data) -> defaultdict:
     Provides key mapping to database.
 
     Receives goalieStats branch.
+
+    Url.GAME
 
     Args:
         data (dict): dict representing JSON object.
@@ -231,6 +251,8 @@ def skater_stats_game(data) -> defaultdict:
     Provides database key mapping.
 
     Receives skaterStats branch.
+
+    Url.GAME
 
     Args:
         data (dict): dict representing JSON object.
@@ -272,6 +294,8 @@ def skater_stats_game(data) -> defaultdict:
 
 def team_season_stats(data, metadata=False, season=None) -> defaultdict:
     """Parse a teams single season stats. Provides a database mapping.
+
+    Url.TEAMS ?expand=team.stats&season=NUM
 
     Args:
         data (dict): dict representing JSON object of a team's season stats
@@ -327,11 +351,52 @@ def team_season_stats(data, metadata=False, season=None) -> defaultdict:
     parsed_data['shooting_pct'] = data_copy['shootingPctg']
     parsed_data['save_pct'] = data_copy['savePctg']
 
+    # unfortunately the JSON for the above parsing does not have
+    # regulation Wins included
+    # As of April 5th 2020, this function only adds regulation wins
+    # it may be expanded in the future
+    team_standings_stats(
+        parsed_data['team_season']['team_id'],
+        parsed_data['team_season']['division_id'],
+        parsed_data['team_season']['season'],
+        parsed_data
+    )
+
     return parsed_data
+
+
+def team_standings_stats(team_id, division, season, parsed_data):
+    """Queries the Standings endpoint for Regulation Wins"""
+    from puck.utils import get_season_number
+
+    if season != get_season_number():
+        return
+
+    from puck.utils import request
+    from puck.urls import Url
+
+    data = request(Url.STANDINGS, {'team_id': team_id}, {'season': (season)})
+
+    # maps division to an index that Url.Standings returns
+    divisions = {
+        18: 0,
+        17: 1,
+        16: 2,
+        15: 3
+    }
+    data = data['records'][divisions[division]]['teamRecords']
+
+    for i in data:
+        if i['team']['id'] == team_id:
+            # we only need this one column :(
+            parsed_data['reg_wins'] = i['row']
+            break
 
 
 def roster(data) -> list:
     """Simple parser to get all players on a roster.
+
+    Url.ROSTER
 
     Args:
         data (dict): dict representing JSON object of a team's roster
@@ -349,6 +414,8 @@ def roster(data) -> list:
 def skater_season_stats(data) -> defaultdict:
     """Parser for a skater's season stats. Provides database mapping.
 
+    Url.PLAYER_STATS_ALL
+
     Args:
         data (dict): dict representing JSON object of a skaters
                       full season stats
@@ -358,7 +425,7 @@ def skater_season_stats(data) -> defaultdict:
     """
     parsed_data = defaultdict(lambda: None)
 
-    _season_info(data, parsed_data)
+    metadata_players(data, parsed_data)
 
     parsed_data['time_on_ice'] = data['stat'].get('timeOnIce', None)
     parsed_data['assists'] = data['stat'].get('assists', None)
@@ -389,6 +456,8 @@ def skater_season_stats(data) -> defaultdict:
 def goalie_season_stats(data) -> defaultdict:
     """Parser for a goalie's season stats. Provides database mapping.
 
+    Url.PLAYER_STATS_ALL
+
     Args:
         data (dict): dict representing JSON object of a goalie's
                       full season stats
@@ -399,7 +468,7 @@ def goalie_season_stats(data) -> defaultdict:
 
     parsed_data = defaultdict(lambda: None)
 
-    _season_info(data, parsed_data)
+    metadata_players(data, parsed_data)
 
     parsed_data['games'] = data['stat'].get('games', None)
     parsed_data['save_pct'] = data['stat'].get('savePercentage', None)
@@ -440,6 +509,58 @@ def _season_info(data, parsed_data):
     parsed_data['season_data']['season'] = data['season']
 
 
+def _team_info(data, parsed_data):
+    """Metadata of a players Season - Team info."""
+    parsed_data['team_data'] = defaultdict(lambda: None)
+    parsed_data['team_data']['full_name'] = data['team'].get('name')
+
+    # most team names have no id, simple hash for the id
+    team_id_hash = sum([ord(x) for x in parsed_data['team_data']['full_name']])
+    team_id_hash = team_id_hash + (team_id_hash % len(parsed_data['team_data']['full_name']))  # noqa
+
+    parsed_data['team_data']['team_id'] = data['team'].get('id', team_id_hash)
+    parsed_data['team_data']['league_id'] = data['league'].get('id', None)
+
+    # if this is a non NHL team add the hash to season metadata
+    if parsed_data['season_data']['team_id'] is None:
+        parsed_data['season_data']['team_id'] = team_id_hash
+
+
+def _league_info(data, parsed_data):
+    """Metadata of a players season - League Info."""
+    parsed_data['league_data'] = defaultdict(lambda: None)
+    parsed_data['league_data']['league_name'] = data['league']['name']
+
+    league_id_hash = sum(
+        [ord(x) for x in parsed_data['league_data']['league_name']]
+    )
+    league_id_hash = league_id_hash + (league_id_hash % len(parsed_data['league_data']['league_name']))  # noqa
+
+    parsed_data['league_data']['league_id'] = data['league'].get(
+        'id', league_id_hash
+    )
+
+    # if this is a non NHL team add the hash to season metadata
+    if parsed_data['season_data']['league_id'] is None:
+        parsed_data['season_data']['league_id'] = league_id_hash
+
+    # add hash to team metadata
+    if parsed_data['team_data']['league_id'] is None:
+        parsed_data['team_data']['league_id'] = league_id_hash
+
+
+def metadata_players(data, parsed_data):
+    """Wrapper around these three functions.
+    They must be in SEASON -> TEAM -> LEAGUE order"""
+    _season_info(data, parsed_data)
+    _team_info(data, parsed_data)
+    _league_info(data, parsed_data)
+
+
+def invalid_parser(*args, **kwargs):
+    raise InvalidParserException('Cannot call an Invalid Parser.')
+
+
 def get_parser(parser_type):
     """Returns a parser based on key passed. Used in the Dispatch class.
 
@@ -450,7 +571,10 @@ def get_parser(parser_type):
         function: The parser function.
     """
     if parser_type is None:
-        return None
+        # Certain Dispatchers use None type as a parser aka They don't need one
+        # Just have a function to raise an error if this parser is called.
+        # produces a better error message than None Type is not callable
+        return invalid_parser
 
     parser_handler = {
         'game': game,

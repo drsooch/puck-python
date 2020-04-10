@@ -12,7 +12,7 @@ import puck.constants as const
 import puck.database.db_constants as db_const
 from puck.dispatcher import Dispatch
 from puck.urls import Url
-from puck.utils import ProgressBar, async_request
+from puck.utils import ProgressBar, async_request, get_season_number
 
 
 def undefined_tables(cursor):
@@ -48,7 +48,11 @@ async def populate_initial_tables(db_conn):
     """Async requests for Teams, Team rosters, and Players."""
     # NHL and AHL league ids/names
     for query in db_const.PRIMARY_DATA:
-        db_conn.execute(query)
+        cursor = db_conn.cursor()
+        cursor.execute(query)
+
+    cursor.close()
+    db_conn.commit()
 
     num_workers = 5
 
@@ -88,6 +92,8 @@ async def populate_initial_tables(db_conn):
         # process team ids
         for _id in const.TEAM_ID.values():
             team_id_q.put_nowait(Dispatch.team_info(_id))
+
+        for _id in const.TEAM_ID.values():
             team_id_q.put_nowait(Dispatch.team_season(_id, 20172018))
             team_id_q.put_nowait(Dispatch.team_season(_id, 20182019))
             team_id_q.put_nowait(Dispatch.team_season(_id, 20192020))
@@ -113,7 +119,9 @@ async def generic_worker(queue, session, db_conn, result_queue=None, pb=None):
 
         # handle end of data propogation
         if dispatcher.name in ['TEAM', 'ROSTER', 'PLAYER']:
+            # if there is a result queue means must propogate
             if result_queue is not None:
+                # pass the correct EOD marker TEAM -> ROSTER -> PLAYER
                 if dispatcher.name == 'TEAM':
                     await result_queue.put(Dispatch.empty('ROSTER'))
                 else:
@@ -132,20 +140,25 @@ async def generic_worker(queue, session, db_conn, result_queue=None, pb=None):
             pb.increment(2)
         elif dispatcher.name == 'roster':
             parsed_data = dispatcher.parser(data)
+            # put each player in the PLAYER queue
             for person in parsed_data:
                 await result_queue.put(
                     Dispatch.player_info(person)
                 )
         elif dispatcher.name == 'team_info':
             parsed_data = dispatcher.parser(data)
+            # insert team_info into the database
             insert_stmt(db_conn, dispatcher.table, parsed_data)
+            # propogate the id to ROSTER queue
             await result_queue.put(
                 Dispatch.roster(parsed_data['team_id'])
             )
             pb.increment()
         elif dispatcher.name == 'player_info':
             parsed_data = dispatcher.parser(data)
+            # insert a players info
             insert_stmt(db_conn, dispatcher.table, parsed_data)
+            # complex logic for handling player season data
             await handle_player_season(db_conn, dispatcher, parsed_data['position'], session)  # noqa
             pb.increment()
 
@@ -192,23 +205,60 @@ async def handle_player_season(db_conn, dispatcher, pos, session):
 
     data = data['stats'][0]['splits']
 
+    # past three years
+    season_nums = [
+        get_season_number(),
+        get_season_number() - 10001,
+        get_season_number() - 20002
+    ]
+
+    # loop through the list backwards
     for year in range(len(data) - 1, -1, -1):
-        if int(data[year]['season']) not in [20182019, 20192020]:
+        # only get the past two years
+        if int(data[year]['season']) not in season_nums:
             break
+        # parse the data from year
         parsed_data = new_disp.parser(data[year])
 
+        # check if league is in the database
+        resp = select_stmt(
+            db_conn, 'league',
+            where=('league_id', parsed_data['league_data']['league_id'])
+        )
+
+        # if its not insert it using metadata
+        if not resp:
+            insert_stmt(db_conn, 'league', parsed_data.pop('league_data'))
+        else:
+            # remove this key
+            del parsed_data['league_data']
+
+        # check if team is in the database
+        resp = select_stmt(
+            db_conn, 'team',
+            where=('team_id', parsed_data['team_data']['team_id'])
+        )
+
+        # if not insert using metadata
+        if not resp:
+            insert_stmt(db_conn, 'team', parsed_data.pop('team_data'))
+        else:
+            del parsed_data['team_data']
+
+        # pop the season metadata for insertion into db
         season_data = parsed_data.pop('season_data')
         season_data['player_id'] = dispatcher.id
         season = season_data['season']
 
         insert_stmt(db_conn, 'player_season', season_data)
 
+        # get the unique id of column just inserted
         resp = select_stmt(
             db_conn, 'player_season', columns=['unique_id'],
             where=[
                 (new_disp.id_type, new_disp.id), ('season', season),
-                ('league_name', season_data['league_name']),
-                ('team_name', season_data['team_name'])
+                ('league_id', season_data['league_id']),
+                ('team_id', season_data['team_id'])
             ]
         )
 
@@ -308,7 +358,7 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
                     pgsql.Identifier(w[0]), pgsql.Placeholder()
                 ))
                 values.append(w[1])
-            stmts = pgsql.SQL(", ").join(stmts)
+            stmts = pgsql.SQL(" AND ").join(stmts)
         else:
             stmts = pgsql.SQL("{} = {}").format(
                 pgsql.Identifier(where[0]), pgsql.Placeholder())
@@ -323,14 +373,15 @@ def select_stmt(db_conn, table, columns=None, joins=None, where=None, order_by=N
 
     base_str = base_str.format(columns, table, where_clause)
 
-    # try:
-    cursor = db_conn.cursor()
-    cursor.execute(base_str, tuple(values))
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute(base_str, tuple(values))
 
-    return cursor.fetchall()
-    # except pg.Error as err:
-    # print(base_str, values)
-    # print(err)
+        return cursor.fetchall()
+    except pg.Error as err:
+        print(cursor.mogrify(base_str, tuple(values)))
+        print(base_str, values)
+        print(err)
 
 
 def update_stmt(db_conn, table, params, where=None):
@@ -382,17 +433,16 @@ def update_stmt(db_conn, table, params, where=None):
         where_clause = pgsql.SQL('')
 
     base_str = base_str.format(table, set_clause, where_clause)
-    # try:
-    cursor = db_conn.cursor()
-    cursor.mogrify(base_str, tuple(data))
-    cursor.execute(base_str, tuple(data))
 
-    db_conn.commit()
-    # except pg.Error as err:
-    #     # from puck.debug import debug
-    #     # debug('update_stmt.txt', base_str.as_string(cursor), str(data))
-    #     print(base_str, data)
-    #     print(err)
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute(base_str, tuple(data))
+
+        db_conn.commit()
+    except pg.Error as err:
+        cursor.mogrify(base_str, tuple(data))
+        print(base_str, data)
+        print(err)
 
 
 def insert_stmt(db_conn, table, params):
@@ -419,18 +469,21 @@ def insert_stmt(db_conn, table, params):
         pgsql.Identifier(table), pgsql.SQL(", ").join(cols), val_placeholder
     )
 
-# try:
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute(base_str, tuple(data))
+
+        db_conn.commit()
+    except pg.Error as err:
+        print(base_str, data)
+        print(err)
+
+
+def execute_constant(db_conn, query) -> list:
     cursor = db_conn.cursor()
-    cursor.execute(base_str, tuple(data))
+    cursor.execute(query)
 
-    db_conn.commit()
-# except pg.Error as err:
-    # print(base_str, data)
-    # print(err)
-
-
-def get_ranked_stats(db_conn, table):
-    return db_conn.execute(db_const.TEAM_RANKED_SELECT)
+    return cursor.fetchall()
 
 
 def connect_db() -> pg.extensions.connection:
@@ -448,10 +501,48 @@ def connect_db() -> pg.extensions.connection:
     undef_tables = undefined_tables(cursor)
 
     if undef_tables:
+
+        _confirm()
+
         create_base_tables(cursor, undef_tables)
         create_base_triggers(cursor)
+        db_conn.commit()
+
+        asyncio.run(populate_initial_tables(db_conn))
         db_conn.commit()
 
     cursor.close()
 
     return db_conn
+
+
+def simple_conn() -> pg.extensions.connection:
+    """Simple database connection with no integrity checks."""
+    db_name = os.environ['dbName']
+    db_user = os.environ['dbUser']
+
+    db_conn = pg.connect(
+        database=db_name, user=db_user, cursor_factory=pgext.DictCursor
+    )
+
+    return db_conn
+
+
+def _confirm():
+    while True:
+        init_tables = input(
+            """Puck needs to download large amounts of player and team data
+You can download an SQL dump file from: https://github.com/drsooch/puck.
+However if you'd like up-to-date information you can download data directly.
+Would you like to download the data (Note: it may take several minutes)
+y/n
+>"""
+        )
+
+        if init_tables.lower() != 'y':
+            sys.exit(
+                'If you plan on using the SQL dump file use the command: \
+psql #DBNAME < puck_dump.sql'
+            )
+        else:
+            return

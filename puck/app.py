@@ -15,6 +15,8 @@ def main():
         app.run()
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
+    except Exception as err:
+        print(str(err))
     finally:
         if app:
             app.db_conn.close()
