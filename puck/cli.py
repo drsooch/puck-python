@@ -1,9 +1,10 @@
 import arrow
 import click
 
-from puck.database.db import connect_db
+from puck.database.db import connect_db, simple_conn
 from puck.games_handler import games_handler
 from puck.utils import style
+import puck.app
 
 
 class Config(object):
@@ -96,8 +97,7 @@ File = click.File()
 )
 @click.pass_context
 def cli(ctx, verbose, output_file):
-    conn = connect_db()
-    ctx.obj = Config(conn, verbose, output_file)
+    ctx.obj = Config(None, verbose, output_file)
 
 
 @cli.command()
@@ -133,13 +133,50 @@ def cli(ctx, verbose, output_file):
 def games(ctx, team, today, yesterday, tomorrow, date, date_range):
     """Queries the NHL schedule. To query for a specific team
      use 3-Letter abberviation TEAM.
-
-     TODO: Possible "Finished" game option
      """
+    ctx.obj.conn = connect_db()
     cmd_vals = {k: v for k, v in ctx.params.items() if v}
     games_handler(ctx.obj, cmd_vals)
 
 
-# enter cli
+@cli.command()
+@click.pass_context
+def tui(ctx):
+    """Load the Puck TUI."""
+    puck.app.main()
+
+
+@cli.command()
+@click.pass_context
+def resetdb(ctx):
+    """Reset the database"""
+    while True:
+        reset = input(
+            'Are you sure you want to reset the database? \
+(Note: this will require the user to reinitialize the database.) \
+y/n\n>'
+        )
+        if reset.lower() == 'y':
+            conn = simple_conn()
+            cursor = conn.cursor()
+
+            import puck.database.db_constants as db_const
+            try:
+                import sys
+                cursor.execute(db_const.RESET_DATABASE)
+            except Exception as err:
+                print(f'Database reset failed: {err}', file=sys.stderr)
+                sys.exit(0)
+            finally:
+                cursor.close()
+                conn.commit()
+
+            print('Database successfully reset.')
+        else:
+            print('Reset Cancelled.')
+
+        return
+
+
 def main():
     cli()

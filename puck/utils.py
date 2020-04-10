@@ -141,31 +141,75 @@ async def _update_game(url, game, session):
     game.update_data(json)
 
 
-def _generate_url(url, url_mods):
+def _generate_url(url, url_mods) -> str:
     """
     Takes a url and url modifications and creates a full Url
     Used to create a url with unique values (ie. Team, ID, etc.)
     """
-    try:
-        if Url.GAME == url:
-            url = url.value.format(url_mods['game_id'])
-        elif Url.TEAMS == url:
-            url = url.value.format(url_mods['team_id'])
-        elif Url.TEAM_ROSTER == url:
-            url = url.value.format(url_mods['team_id'])
-        elif Url.PLAYERS == url:
-            url = url.value.format(url_mods['player_id'])
-        elif Url.PLAYER_STATS_ALL == url:
-            url = url.value.format(url_mods['player_id'])
-    except KeyError as err:
-        raise URLException(
-            f'Url modifications did not contain the valid format string.\n\
-             Got: {url_mods}'
-        )
+    if isinstance(url, Url):
+        try:
+            if Url.GAME == url:
+                url = url.value.format(url_mods['game_id'])
+            elif Url.TEAMS == url:
+                url = url.value.format(url_mods['team_id'])
+            elif Url.TEAM_ROSTER == url:
+                url = url.value.format(url_mods['team_id'])
+            elif Url.PLAYERS == url:
+                url = url.value.format(url_mods['player_id'])
+            elif Url.PLAYER_STATS_ALL == url:
+                url = url.value.format(url_mods['player_id'])
+            elif Url.STANDINGS == url:
+                url = url.value.format(url_mods['team_id'])
+        except KeyError as err:
+            raise URLException(
+                f'Url modifications did not contain the valid format string.\n\
+                Got: {url_mods}'
+            )
+    else:
+        pass
+
     return url
 
 
-def team_to_id(team):
+def get_season_number(date=None) -> int:
+    if date is None:
+        date = arrow.now()
+
+    # convert to date object
+    date = date.date()
+
+    # season starts in october
+    if date.month > 10:
+        # shift the year 5 places
+        season = date.year * 10000
+        # add the next year
+        season += date.year + 1
+    else:
+        # shift the prior year 5 places
+        season = (date.year - 1) * 10000
+        season += date.year
+
+    return season
+
+
+def humanize_name(name, short=False) -> str:
+    """A function to humanize certain names. Mostly database columns.
+
+    Args:
+        name (str): The name to humanize
+        short (bool, optional): Certain names can be shortened if needed.
+                                Defaults to False.
+
+    Returns:
+        str: Humanized Name of key provided
+    """
+
+    # int conversion of bool is either 1 or 0
+    # short = True would be the second index
+    return const.HUMANIZE[name][int(short)]
+
+
+def team_to_id(team) -> str:
     """
     Return a teams ID number. Accepts both Long Name and Abbreviation.
 
@@ -217,30 +261,45 @@ class ProgressBar(object):
             self, start=0, end=100, prefix='Progress:', suffix='Complete',
             decimals=1, length=75, fill='█', print_end="\r"
     ):
+        # start time of event
         self.start_time = arrow.now()
+        # current progress
         self.curr = start
+        # end progress number
         self.end = end
+        # prefix of pb
         self.prefix = prefix
+        # suffic of pb
         self.suffix = suffix
+        # num decimal places
         self.decimals = decimals
+        # length of bar
         self.length = length
+        # fill char
         self.fill = fill
+        # print end char
         self.print_end = print_end
+        # complete flag
+        self.complete = False
 
         self.print_bar()
 
     def increment(self, amt=1):
+        # increment curr by amt and print new bar
         self.curr += amt
         self.print_bar()
 
-    def force_complete(self):
+    def completed(self):
+        # must be called by caller unfortunately
+        self.complete = True
         self.curr = self.end
         self.print_bar()
 
-    def completed(self):
+    def print_results(self):
+        # print the time taken
         result = arrow.now() - self.start_time
         print()
-        print(f'Took: {result.total_seconds()}')
+        print(f'Took: {result.total_seconds()} seconds')
 
     def print_bar(self):
         percent = ("{0:." + str(self.decimals) + "f}").format(
@@ -250,9 +309,12 @@ class ProgressBar(object):
         bar = self.fill * filledLength + '-' * (self.length - filledLength)
         print('\r%s |%s| %s%% %s' %
               (self.prefix, bar, percent, self.suffix), end=self.print_end)
-        # Print New Line on Complete
-        if self.curr == self.end:
-            self.completed()
+        # if we have complete called end
+        if self.complete:
+            self.print_results()
+        # if end == curr and not complete, just increment end by 1
+        elif self.end == self.curr:
+            self.end += 1
 
 
 def style(msg, format):

@@ -1,4 +1,5 @@
 #! /usr/bin/env python3.7
+import puck.cli
 import json
 import os
 import sys
@@ -34,12 +35,4 @@ for cfg in CONFIG:
     os.environ[cfg] = CONFIG[cfg]
 
 
-# get correct entry point ie CLI or TUI
-if True:
-    import puck.app
-    main = puck.app.main
-else:
-    import puck.cli
-    main = puck.cli.main
-
-main()
+puck.cli.main()

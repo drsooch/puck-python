@@ -4,7 +4,7 @@ import arrow
 
 import puck.constants as const
 import puck.parser as parser
-from puck.teams import BannerTeam, FullStatsTeam
+from puck.teams import BannerTeam, GameStatsTeam
 from puck.urls import Url
 from puck.utils import request
 
@@ -58,8 +58,8 @@ class BannerGame(BaseGame):
         for key, val in parsed_data.items():
             setattr(self, key, val)
 
-        self.home = _class(self, game_id, 'home', data)
-        self.away = _class(self, game_id, 'away', data)
+        self.home = GameStatsTeam(self, game_id, 'home', data)
+        self.away = GameStatsTeam(self, game_id, 'away', data)
 
     def update_data(self, data=None):
         """
@@ -113,7 +113,7 @@ class FullGame(BannerGame):
         if not data:
             data = request(Url.GAME, url_mods={'game_id': game_id})
 
-        super().__init__(db_conn=db_conn, game_id=game_id, data=data, _class=FullStatsTeam)  # noqa
+        super().__init__(db_conn=db_conn, game_id=game_id, data=data, _class=GameStatsTeam)  # noqa
 
     def update_data(self, data=None):
         super().update_data(data)

@@ -19,31 +19,41 @@ class TableColumns(Enum):
         "handedness", "rookie", "age",
     ]
 
+    TEAM_SEASON_CLASS = [
+        "games_played", "wins", "losses", "ot_losses", "points", "pt_pct",
+        "goals_for_pg", "goals_ag_pg", "evgga_ratio", "pp_pct", "pp_goals_for",
+        "pp_opp", "pk_pct", "pp_goals_ag", "shots_for_pg", "shots_ag_pg",
+        "win_score_first", "win_opp_score_first", "win_lead_first_per",
+        "win_lead_second_per", "win_outshoot_opp", "win_outshot_by_opp",
+        "faceoffs_taken", "faceoff_wins", "faceoff_pct", "save_pct",
+        "shooting_pct"
+    ]
+
 
 LEAGUE_TABLE = """
 CREATE TABLE IF NOT EXISTS league (
-    league_id     INTEGER,
-    league_name   VARCHAR(40) NOT NULL PRIMARY KEY
+    league_id     INTEGER NOT NULL PRIMARY KEY,
+    league_name   VARCHAR(40) NOT NULL
 );
 """
 
 TEAM_TABLE = """
 CREATE TABLE IF NOT EXISTS team (
-    team_id       SMALLINT NOT NULL PRIMARY KEY,
+    team_id       INTEGER NOT NULL PRIMARY KEY,
     full_name     VARCHAR(50) NOT NULL,
     abbreviation  VARCHAR(3),
     division      SMALLINT,
     conference    SMALLINT,
     active        BOOLEAN,
     franchise_id  SMALLINT,
-    league_name   VARCHAR(50) NOT NULL REFERENCES league
+    league_id     INTEGER NOT NULL REFERENCES league
 );
 """
 
 PLAYER_TABLE = """
 CREATE TABLE IF NOT EXISTS player (
     player_id     INTEGER NOT NULL PRIMARY KEY,
-    team_id       SMALLINT NOT NULL REFERENCES team,
+    team_id       INTEGER NOT NULL REFERENCES team,
     first_name    VARCHAR(30) NOT NULL,
     last_name     VARCHAR(50) NOT NULL,
     number        VARCHAR(2),
@@ -71,9 +81,9 @@ CREATE TABLE IF NOT EXISTS player_season (
     unique_id     SERIAL NOT NULL PRIMARY KEY,
     player_id     INTEGER NOT NULL REFERENCES player,
     season        INTEGER NOT NULL,
-    league_id     SMALLINT,
-    league_name   VARCHAR(50) NOT NULL REFERENCES league,
-    team_id       SMALLINT,
+    league_id     INTEGER NOT NULL REFERENCES league,
+    league_name   VARCHAR(50) NOT NULL,
+    team_id       INTEGER,
     team_name     VARCHAR(50) NOT NULL
 );
 """
@@ -159,6 +169,7 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
     wins                  SMALLINT,
     losses                SMALLINT,
     ot_losses             SMALLINT,
+    reg_wins              SMALLINT,
     ties                  SMALLINT,
     points                SMALLINT,
     pt_pct                REAL,
@@ -188,10 +199,7 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
 );
 """
 
-
-# -------------------------- NOT FIXED --------------------------#
 TEAM_RANKED_SELECT = """SELECT
-    team_id,
     games_played,
     wins,
     RANK() OVER (ORDER BY wins DESC) AS win_rank,
@@ -199,6 +207,8 @@ TEAM_RANKED_SELECT = """SELECT
     RANK() OVER (ORDER BY losses ASC) AS losses_rank,
     ot_losses,
     RANK() OVER (ORDER BY ot_losses ASC) AS ot_losses_rank,
+    reg_wins,
+    RANK() OVER (ORDER BY reg_wins DESC) AS reg_wins_rank,
     points,
     RANK() OVER (ORDER BY points DESC) AS points_rank,
     pt_pct,
@@ -223,18 +233,6 @@ TEAM_RANKED_SELECT = """SELECT
     RANK() OVER (ORDER BY shots_for_pg DESC) AS shots_for_pg_rank,
     shots_ag_pg,
     RANK() OVER (ORDER BY shots_ag_pg ASC) AS shots_ag_pg_rank,
-    win_score_first,
-    RANK() OVER (ORDER BY win_score_first DESC) AS win_score_first_rank,
-    win_opp_score_first,
-    RANK() OVER (ORDER BY win_opp_score_first DESC) AS win_opp_score_first_rank,
-    win_lead_first_per,
-    RANK() OVER (ORDER BY win_lead_first_per DESC) AS win_lead_first_per_rank,
-    win_lead_second_per,
-    RANK() OVER (ORDER BY win_lead_second_per DESC) AS win_lead_second_per_rank,
-    win_outshoot_opp,
-    RANK() OVER (ORDER BY win_outshoot_opp DESC) AS win_outshoot_opp_rank,
-    win_outshot_by_opp,
-    RANK() OVER (ORDER BY win_outshot_by_opp DESC) AS win_outshot_by_opp_rank,
     faceoffs_taken,
     RANK() OVER (ORDER BY faceoffs_taken DESC) AS faceoffs_taken_rank,
     faceoff_wins,
@@ -250,7 +248,7 @@ TEAM_RANKED_SELECT = """SELECT
     FROM team_season_stats
         INNER JOIN team_season ON
         team_season.unique_id = team_season_stats.unique_id
-        AND team_season.season = "20192020"
+        AND team_season.season = {}
         ORDER BY team_season.team_id;"""
 
 
@@ -348,8 +346,28 @@ BASE_TRIGGERS = [
 ]
 
 
-GET_TABLES = """SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"""
+GET_TABLES = """
+SELECT table_name FROM information_schema.tables
+    WHERE table_schema = 'public';
+"""
 PRIMARY_DATA = [
-    """INSERT INTO league(league_id, league_name) VALUES (133, "NHL");""",
-    """INSERT INTO league(league_id, league_name) VALUES (153, "AHL");"""
+    """INSERT INTO league(league_id, league_name) VALUES (133, 'National Hockey League');""",
+    """INSERT INTO league(league_id, league_name) VALUES (153, 'American Hockey League');"""
 ]
+
+RESET_DATABASE = """
+DROP TABLE team_season_stats;
+DROP TABLE team_season;
+DROP TABLE skater_season_stats;
+DROP TABLE goalie_season_stats;
+DROP TABLE player_season;
+DROP TABLE player;
+DROP TABLE team;
+DROP TABLE league;
+
+DROP FUNCTION public.compute_points();
+DROP FUNCTION public.update_time_goalie_stats();
+DROP FUNCTION public.update_time_player();
+DROP FUNCTION public.update_time_skater_stats();
+DROP FUNCTION public.update_time_team_stats();
+"""

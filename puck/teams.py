@@ -137,7 +137,7 @@ class BannerTeam(BaseTeam):
                 )
 
 
-class FullStatsTeam(BaseTeam):
+class GameStatsTeam(BaseTeam):
     """
     This class is designed for use in conjuction with a FullGame object.
     Built upon the BaseTeam class, this class gathers stats relevant to
@@ -155,6 +155,88 @@ class FullStatsTeam(BaseTeam):
         InvalidTeamType: If 'home' or 'away' is not supplied
         creation will fail.
     """
+    class PeriodStats(UserList):
+        """
+        Inner Class.
+
+        This class is for easy use to call individual period stats.
+        The current implementation is intended to change.
+
+        NOTE:
+            Playoff games can have multiple overtimes, which is not captured
+            in this class.
+
+        Attributes:
+            Unsure lol.
+        """
+        class Period(object):
+            """Inner Class. Used for better accessing period stats."""
+
+            def __init__(self, name, data):
+                self.name = name
+
+                parsed_data = parser.period(data)
+
+                for key, val in parsed_data.items():
+                    setattr(self, key, val)
+
+            def update_data(self, data):
+                parsed_data = parser.period(data)
+
+                for key, val in parsed_data.items():
+                    if hasattr(self, key):
+                        setattr(self, key, val)
+                    else:
+                        AttributeError(
+                            f'Period update received an attribute {key} \
+                            that has not been set.'
+                        )
+
+            def __repr__(self):
+                return f'{self.__class__} -> {self.__dict__}'
+
+        def __init__(self, periods, team_type):
+            self.num_per = len(periods)
+
+            data = []
+            for i in range(self.num_per):
+                name = periods[i]['ordinalNum']
+                data.append(
+                    self.Period(name, periods[i][team_type])
+                )
+
+            super().__init__(data)
+
+            self.total_shots = sum([x.shots for x in self.data])
+
+        def update_data(self, periods, team_type):
+            _range = len(periods)
+            old_count = self.num_per
+
+            if self.num_per < _range:
+                self.num_per = _range
+
+            for i in range(self.num_per):
+                if i < old_count:
+                    self.data[i].update_data(periods[i][team_type])
+                else:
+                    name = periods[i]['ordinalNum']
+                    self.data.append(self.Period(name, periods[i][team_type]))
+
+            self.total_shots = sum([x.shots for x in self.data])
+
+        def __repr__(self):
+            return f'{self.__class__} -> {self.__dict__}'
+
+    class ShootoutStats(object):
+        """Inner Class. Used for better accessing shootout stats."""
+
+        def __init__(self, goals=None, attempts=None):
+            self.goals = goals
+            self.attempts = attempts
+
+        def __repr__(self):
+            return f'{self.__class__} -> {self.__dict__}'
 
     def __init__(self, game, game_id, team_type, data=None):
         """Constructor for GameStatsTeam
@@ -204,19 +286,20 @@ class FullStatsTeam(BaseTeam):
             setattr(self, key, val)
 
         # PeriodStats object for easier referencing
-        self.periods = PeriodStats(
+        self.periods = self.PeriodStats(
             data['liveData']['linescore']['periods'], team_type
         )
 
         # ShootOutStats object for easier referencing
         if data['liveData']['linescore']['hasShootout']:
-            self.shootout = ShootoutStats(
+            self.shootout = self.ShootoutStats(
                 goals=data['liveData']['linescore']['shootoutInfo'][team_type]['scores'],  # noqa
                 attempts=data['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
             )
         else:
-            self.shootout = ShootoutStats()
+            self.shootout = self.ShootoutStats()
 
+        # collect all player ids
         self.id_list = data['liveData']['boxscore']['teams'][team_type]['goalies']  # noqa
         self.id_list.extend(data['liveData']['boxscore']['teams'][team_type]['skaters'])  # noqa
         self.id_list.extend(data['liveData']['boxscore']['teams'][team_type]['scratches'])  # noqa
@@ -282,88 +365,50 @@ class FullStatsTeam(BaseTeam):
             self.shootout.attempts = data['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
 
 
-class PeriodStats(UserList):
+class TeamSeasonStats(BaseTeam):
     """
-    Internal Use Only.
-
-    This class is for easy use to call individual period stats.
-    The current implementation is intended to change.
-
-    NOTE:
-        Playoff games can have multiple overtimes, which is not captured
-        in this class.
-
-    Attributes:
-        Unsure lol.
+    Team class for holding a particular season's stats.
     """
+    class ValueRank():
+        """Helper class for team stats."""
 
-    def __init__(self, periods, team_type):
-        self.num_per = len(periods)
+        def __init__(self, name, value, rank=None):
+            self.name = name
+            self.value = value
+            self.rank = rank
 
-        data = []
-        for i in range(self.num_per):
-            name = periods[i]['ordinalNum']
-            data.append(
-                Period(name, periods[i][team_type])
-            )
+    def __init__(self, team_id, db_conn, stats):
+        super().__init__(team_id, db_conn)
 
-        super().__init__(data)
+        # these are all the team stats returned
+        for key, val in stats.items():
+            if 'rank' in key:
+                # just skip over all rank columns
+                continue
+            # set an attribute with the name of col, and the value as
+            # the ValueRank class
+            try:
+                setattr(self, key, self.ValueRank(
+                    key, val, stats[key + '_rank']
+                ))
+            except KeyError as keyerr:
+                # this is gross. It catches games_played_rank key error and
+                # This is the only key with no rank,
+                # faster than having a dedicated if statement
+                setattr(self, key, self.ValueRank(key, val))
 
-        self.total_shots = sum([x.shots for x in self.data])
+    def stat_items(self):
+        """Returns iterable of stat"""
+        # attributes of BaseTeam that we dont want to return
+        base_attrs = [
+            'team_id', 'full_name', 'abbreviation',
+            'division', 'conference', 'franchise_id'
+        ]
 
-    def update_data(self, periods, team_type):
-        _range = len(periods)
-        old_count = self.num_per
-
-        if self.num_per < _range:
-            self.num_per = _range
-
-        for i in range(self.num_per):
-            if i < old_count:
-                self.data[i].update_data(periods[i][team_type])
+        # for all attributes in self
+        for i in self.__dict__.keys():
+            # if attr in base_attrs
+            if i in base_attrs:
+                continue
             else:
-                name = periods[i]['ordinalNum']
-                self.data.append(Period(name, periods[i][team_type]))
-
-        self.total_shots = sum([x.shots for x in self.data])
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
-
-
-class Period(object):
-    """Internal Use Only. Used for better accessing period stats."""
-
-    def __init__(self, name, data):
-        self.name = name
-
-        parsed_data = parser.period(data)
-
-        for key, val in parsed_data.items():
-            setattr(self, key, val)
-
-    def update_data(self, data):
-        parsed_data = parser.period(data)
-
-        for key, val in parsed_data.items():
-            if hasattr(self, key):
-                setattr(self, key, val)
-            else:
-                AttributeError(
-                    f'Period update received an attribute {key} \
-                    that has not been set.'
-                )
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
-
-
-class ShootoutStats(object):
-    """Internal Use Only. Used for better accessing shootout stats."""
-
-    def __init__(self, goals=None, attempts=None):
-        self.goals = goals
-        self.attempts = attempts
-
-    def __repr__(self):
-        return f'{self.__class__} -> {self.__dict__}'
+                yield i, self.__dict__[i]
