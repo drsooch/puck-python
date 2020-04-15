@@ -366,18 +366,11 @@ class GameStatsTeam(BaseTeam):
     def top_scorers(self):
         return self.players.top_scorers()
 
-<<<<<<< HEAD
 
 class TeamSeasonStats(BaseTeam):
     """
     Team class for holding a particular season's stats.
     """
-=======
-class TeamSeasonStats(BaseTeam):
-    """
-    Team class for holding a particular season's stats.
-    """
->>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
     class ValueRank():
         """Helper class for team stats."""
 
@@ -386,7 +379,6 @@ class TeamSeasonStats(BaseTeam):
             self.value = value
             self.rank = rank
 
-<<<<<<< HEAD
         def rank_suffix(self):
             if self.rank is None:
                 return None
@@ -488,40 +480,3 @@ class TeamSeasonStats(BaseTeam):
         for i in self.__dict__.keys():
             if i in splits:
                 yield self.__dict__[i]
-=======
-    def __init__(self, team_id, db_conn, stats):
-        super().__init__(team_id, db_conn)
-
-        # these are all the team stats returned
-        for key, val in stats.items():
-            if 'rank' in key:
-                # just skip over all rank columns
-                continue
-            # set an attribute with the name of col, and the value as
-            # the ValueRank class
-            try:
-                setattr(self, key, self.ValueRank(
-                    key, val, stats[key + '_rank']
-                ))
-            except KeyError as keyerr:
-                # this is gross. It catches games_played_rank key error and
-                # This is the only key with no rank,
-                # faster than having a dedicated if statement
-                setattr(self, key, self.ValueRank(key, val))
-
-    def stat_items(self):
-        """Returns iterable of stat"""
-        # attributes of BaseTeam that we dont want to return
-        base_attrs = [
-            'team_id', 'full_name', 'abbreviation',
-            'division', 'conference', 'franchise_id'
-        ]
-
-        # for all attributes in self
-        for i in self.__dict__.keys():
-            # if attr in base_attrs
-            if i in base_attrs:
-                continue
-            else:
-                yield i, self.__dict__[i]
->>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
