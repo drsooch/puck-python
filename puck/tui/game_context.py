@@ -692,6 +692,6 @@ class SingleGameLiveDisplay(urwid.WidgetWrap, BaseDisplay):
         # call to update
         self.game.update_data(data)
 
-        widget = urwid.Text('Hi')
+        widget = Text('Hi')
 
         urwid.WidgetWrap.__init__(self, widget)

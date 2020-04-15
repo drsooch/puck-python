@@ -11,7 +11,7 @@ from puck.database.db import connect_db
 from puck.games import get_game_ids
 from puck.tui.game_context import GamesContext
 from puck.tui.game_panel import GamePanel
-from puck.tui.tui_utils import SelectableText
+from puck.tui.tui_utils import SelectableText, Text
 from puck.utils import batch_game_create, batch_game_update
 
 VERSION = '0.1'
@@ -202,7 +202,7 @@ class PuckApp(object):
 
 
 def create_header() -> urwid.Columns:
-    return urwid.Text(u'Puck v{}'.format(VERSION), align='center')
+    return Text(u'Puck v{}'.format(VERSION))
 
 
 def create_main_menu(app, rows) -> urwid.LineBox:
@@ -220,7 +220,7 @@ def create_main_menu(app, rows) -> urwid.LineBox:
 
 
 def create_opening_menu(rows) -> urwid.LineBox:
-    text = urwid.Text(u'')
+    text = urwid.Text('')
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
@@ -229,7 +229,7 @@ def create_opening_menu(rows) -> urwid.LineBox:
 def create_opening_page(rows) -> urwid.LineBox:
     start_text = u'Welcome to Puck version: {}\n \
         Visit https://github.com/drsooch/puck for more information.'.format(VERSION)  # noqa
-    text = urwid.Text(start_text, align='center')
+    text = Text(start_text)
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)

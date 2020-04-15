@@ -6,7 +6,7 @@ import urwid
 from additional_urwid_widgets import DatePicker, MessageDialog
 
 from puck.games import get_game_ids
-from puck.tui.tui_utils import SelectableText, box_wrap, gametime_text_widget
+from puck.tui.tui_utils import SelectableText, box_wrap, gametime_text_widget, Text
 from puck.utils import batch_game_create, batch_game_update
 
 
@@ -130,7 +130,7 @@ class GamePanel(urwid.WidgetWrap):
         elif self.app.size == 0:
             count = 0
             cards = [
-                urwid.Text(u'No games today. Select another date from above.', 'center'),
+                Text(u'No games today. Select another date from above.'),
             ]
         else:
             count = self.app.size
@@ -155,15 +155,15 @@ class GamePanel(urwid.WidgetWrap):
     def _create_game_card(self, game) -> urwid.LineBox:
         home = urwid.Pile(
             [
-                urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home.goals), align='center')
+                Text(game.home.abbreviation),
+                Text(str(game.home.goals))
             ]
         )
 
         away = urwid.Pile(
             [
-                urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away.goals), align='center')
+                Text(game.away.abbreviation),
+                Text(str(game.away.goals))
             ]
         )
 

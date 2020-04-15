@@ -5,6 +5,7 @@ Puck the NHL CLI and TUI.
 Version 0.1 is being pushed to the repository. (Quite an arbitrary version number I know.) Part of the reasoning behind this is to expose my code to the outside world. Features are slowly being evolved, unfortunately a new semester has started and I have to stay on top of my impending workload.
 
 ## CLI:
+### ON HOLD
 The CLI interface is barebones. Currently only two subcommands are implemented: games and tui.
 
 ![puck cli](imgs/PuckCLIusage.png)
@@ -38,6 +39,8 @@ There's not much else you can do besides look at today's games. You can use the 
 
 ![Box Scores](imgs/TUIGames.png)
 
+![Single Game Preview](imgs/TUIPreview.png)
+
 Puck has recently switched from SQLite3 to Postgres. (This was much to my chagrin.) I am still working on a setup script for having the psql command create and manage the database for you but I haven't been able to get it work.
 
 
@@ -61,13 +64,13 @@ The postgresql database MUST be created by you. I have not been able to make it 
 
 There is an SQL dump file provided. This has all of the needed data to get Puck to work. Pipe this file into your created database: `psql myDB < puck_dump.sql`. **NOTE:** The most recent commit has changed the dumpfile to be from psql rather than SQLite3 as it was originally. This means it has my local names in the file. I haven't been able to find a way to get it to be flexible. I would go through the file and replace the occurrences of "sooch" with your dbadmin name.
 
-**IF YOU WANT UP TO DATE STATS**: You can run puck through its normal route and download the data. The data downloaded consists of players, teams, season stats for both players and teams. It's imperative that you have a solid internet connection before first start up. If there is an exception during initialization, delete the database file and run it again. It can take several minutes for setup to complete. I would recommend running it in a side terminal and leaving it in the background.
+**IF YOU WANT UP TO DATE STATS**: You can run puck through its normal route and download the data. The data downloaded consists of players, teams, season stats for both players and teams. It's imperative that you have a solid internet connection before first start up. If there is an exception during initialization, use `python3 __main__.py resetdb` command and run it again. It can take several minutes for setup to complete. I would recommend running it in a side terminal and leaving it in the background.
 
 To actually run it.
 
 `python3 puck/__main__.py tui`
 
-I will be changing the name of __main__.py to be an actual file name this is just a placeholder for now. 
+I will be changing the name of `__main__.py` to be an actual file name this is just a placeholder for now.
 
 Wait what's that? Python failed to import puck.whatever? This happened more times than I can count. My best answer, until I clean up the code,is to play with the import paths until one works.
 
@@ -78,6 +81,6 @@ If you see code that "smells" or could be implemented differently, please don't 
 The code has a mix of docstrings and no docstrings. I haven't found the time to go through and create docstringsfor functions and classes yet. Please bear  with me while I continue to work on this in my spare time. Also the test folder is empty... Because who needs testing......
 
 ### Copyright:
-I am not collecting any financial gain from this project I am merely using this as a place to grow my software skills. 
+I am not collecting any financial gain from this project I am merely using this as a place to grow my software skills.
 
 NHL and the NHL Shield are registered trademarks of the National Hockey League. NHL and NHL team marks are the property of the NHL and its teams. © NHL 2020. All Rights Reserved.

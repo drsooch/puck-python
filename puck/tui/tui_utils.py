@@ -9,26 +9,26 @@ def Text(string) -> urwid.Text:
 def gametime_text_widget(game) -> urwid.Widget:
     """Helper function to generate the Game Time Text Widget"""
     if game.is_preview:
-        time = urwid.Text(game.start_time, align='center')
+        time = Text(game.start_time)
     elif game.is_live:
         if game.in_intermission:
-            time = urwid.Text(
-                game.time + ' ' + game.period, align='center'
+            time = Text(
+                game.time + ' ' + game.period
             )
         else:
             time = urwid.Pile(
                 [
-                    urwid.Text(game.time, align='center'),
-                    urwid.Text(game.period, align='center')
+                    Text(game.time),
+                    Text(game.period)
                 ]
             )
     else:
         if game.period == 'OT':
-            time = urwid.Text(u'Final OT', align='center')
+            time = Text(u'Final OT')
         elif game.period == 'SO':
-            time = urwid.Text(u'Final SO', align='center')
+            time = Text(u'Final SO')
         else:
-            time = urwid.Text(u'Final', align='center')
+            time = Text(u'Final')
 
     return time
 
@@ -66,7 +66,7 @@ class SelectableText(urwid.WidgetWrap):
                                        on_press.
         """
         self.label = text
-        self.text = urwid.Text(self.label, align='center')
+        self.text = Text(self.label)
         wrapped_text = urwid.AttrMap(self.text, None, 'menu_focus')
         listbox = urwid.ListBox([wrapped_text])
 
