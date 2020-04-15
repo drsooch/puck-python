@@ -11,7 +11,7 @@ from puck.database.db import connect_db
 from puck.games import get_game_ids
 from puck.tui.game_context import GamesContext
 from puck.tui.game_panel import GamePanel
-from puck.tui.tui_utils import SelectableText
+from puck.tui.tui_utils import SelectableText, Text
 from puck.utils import batch_game_create, batch_game_update
 
 VERSION = '0.1'
@@ -24,6 +24,7 @@ PALETTE = [
     ('menu_focus', 'standout', ''),
     ('dp_focus', 'black', 'white'),
     ('dp_no_focus', 'white', 'black'),
+    ('bold_text', 'bold', 'black'),
 ]
 
 
@@ -98,7 +99,7 @@ class PuckApp(object):
         self.loop.widget = self.frame
 
     def error_message(self, msg, size=None):
-        ok = urwid.Button(u'OK', on_press=self.destroy)
+        ok = SelectableText(u'OK', on_press=self.destroy)
         if not size:
             size = (self.cols // 3, self.rows // 3)
         self.loop.widget = MessageDialog(
@@ -124,8 +125,8 @@ class PuckApp(object):
         date_pick = DatePicker(
             highlight_prop=("dp_focus", "dp_no_focus")
         )
-        cancel = urwid.Button('Cancel', on_press=self.destroy)
-        select = urwid.Button(
+        cancel = SelectableText('Cancel', on_press=self.destroy)
+        select = SelectableText(
             'Select', on_press=on_press, user_data=date_pick
         )
         btn_grid = urwid.GridFlow([cancel, select], 10, 5, 1, 'center')
@@ -199,17 +200,9 @@ class PuckApp(object):
         self.list_walk[0] = self.top_bar
         self.list_walk.set_focus(0)
 
-    def display_progress_bar(self):
-        self.frame.footer = self.progress_bar
-
-    def update_progress_bar(self, percent):
-        if self.footer.original_widget == self.progress_bar:
-            self.progress_bar.set_completion(percent)
-            self.frame.footer = self.footer
-
 
 def create_header() -> urwid.Columns:
-    return urwid.Text(u'Puck v{}'.format(VERSION), align='center')
+    return Text(u'Puck v{}'.format(VERSION))
 
 
 def create_main_menu(app, rows) -> urwid.LineBox:
@@ -227,7 +220,7 @@ def create_main_menu(app, rows) -> urwid.LineBox:
 
 
 def create_opening_menu(rows) -> urwid.LineBox:
-    text = urwid.Text(u'')
+    text = urwid.Text('')
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
@@ -236,16 +229,10 @@ def create_opening_menu(rows) -> urwid.LineBox:
 def create_opening_page(rows) -> urwid.LineBox:
     start_text = u'Welcome to Puck version: {}\n \
         Visit https://github.com/drsooch/puck for more information.'.format(VERSION)  # noqa
-    text = urwid.Text(start_text, align='center')
+    text = Text(start_text)
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
-
-
-def create_prog_bar() -> urwid.ProgressBar:
-    pb = urwid.ProgressBar('main', 'inv_main', 50, 100, 'main')
-
-    return pb
 
 
 class Sizing(object):

@@ -19,16 +19,6 @@ class TableColumns(Enum):
         "handedness", "rookie", "age",
     ]
 
-    TEAM_SEASON_CLASS = [
-        "games_played", "wins", "losses", "ot_losses", "points", "pt_pct",
-        "goals_for_pg", "goals_ag_pg", "evgga_ratio", "pp_pct", "pp_goals_for",
-        "pp_opp", "pk_pct", "pp_goals_ag", "shots_for_pg", "shots_ag_pg",
-        "win_score_first", "win_opp_score_first", "win_lead_first_per",
-        "win_lead_second_per", "win_outshoot_opp", "win_outshot_by_opp",
-        "faceoffs_taken", "faceoff_wins", "faceoff_pct", "save_pct",
-        "shooting_pct"
-    ]
-
 
 LEAGUE_TABLE = """
 CREATE TABLE IF NOT EXISTS league (
@@ -169,7 +159,11 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
     wins                  SMALLINT,
     losses                SMALLINT,
     ot_losses             SMALLINT,
-    reg_wins              SMALLINT,
+    reg_ot_wins           SMALLINT,
+    streak                VARCHAR(7),
+    last_ten              VARCHAR(7),
+    home_record           VARCHAR(9),
+    away_record           VARCHAR(9),
     ties                  SMALLINT,
     points                SMALLINT,
     pt_pct                REAL,
@@ -201,14 +195,18 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
 
 TEAM_RANKED_SELECT = """SELECT
     games_played,
+    streak,
+    last_ten,
+    home_record,
+    away_record,
     wins,
-    RANK() OVER (ORDER BY wins DESC) AS win_rank,
+    RANK() OVER (ORDER BY wins DESC) AS wins_rank,
     losses,
     RANK() OVER (ORDER BY losses ASC) AS losses_rank,
     ot_losses,
     RANK() OVER (ORDER BY ot_losses ASC) AS ot_losses_rank,
-    reg_wins,
-    RANK() OVER (ORDER BY reg_wins DESC) AS reg_wins_rank,
+    reg_ot_wins,
+    RANK() OVER (ORDER BY reg_ot_wins DESC) AS reg_ot_wins_rank,
     points,
     RANK() OVER (ORDER BY points DESC) AS points_rank,
     pt_pct,
@@ -251,6 +249,22 @@ TEAM_RANKED_SELECT = """SELECT
         AND team_season.season = {}
         ORDER BY team_season.team_id;"""
 
+TOP_SCORER_TEAM = """
+SELECT
+player_id,
+goals,
+RANK() OVER (ORDER BY goals DESC) as goals_rank,
+assists,
+RANK() OVER (ORDER BY assists DESC) as assists_rank,
+points,
+RANK() OVER (ORDER BY points DESC) as points_rank
+FROM skater_season_stats
+INNER JOIN player_season
+    ON player_season.unique_id = skater_season_stats.unique_id
+    AND player_season.team_id = {}
+    AND player_season.season = {}
+ORDER BY player_id ASC;
+"""
 
 UT_PLAYER_FUNC_TRIG = """
 CREATE OR REPLACE FUNCTION update_time_player() RETURNS trigger AS

@@ -1,9 +1,9 @@
 import asyncio
 from collections import UserList
 
-from puck.utils import request
+import puck.utils as utils
 from puck.urls import Url
-from puck.database.db import select_stmt, batch_update_db
+from puck.database.db import select_stmt, batch_update_db, execute_constant
 import puck.database.db_constants as db_const
 from puck.dispatcher import Dispatch
 import puck.parser as parser
@@ -65,14 +65,15 @@ class FullPlayer(BasePlayer):
 
 class PlayerCollection(object):
     def __init__(self, team, id_list, _class=BasePlayer):
-        self.db_conn = team.game.db_conn
-        self.team = team
-        self.need_to_update = []
-        self._class = _class
-        self.players_created = False
-        self.players = []
-        self.skaters = []
+        self.db_conn = team.game.db_conn  # db_conn
+        self.team = team    # team object associated with collection
+        self.need_to_update = []  # list of players who need to be updated
+        self._class = _class      # Player class type
+        self.players = []         # Player objs list
+        self.forwards = []        # list of indexes that points to self.players
+        self.defense = []
         self.goalies = []
+        self.not_playing = []
 
         team_roster = select_stmt(
             self.db_conn, 'player', columns=['player_id'],
@@ -86,7 +87,7 @@ class PlayerCollection(object):
             player = int(row['player_id'])
 
             if player not in id_set:
-                # this player is no longer on the team
+                # this player is no longer on the team or in the AHL
                 self.need_to_update.append(player)
             else:
                 db_set.add(player)
@@ -100,15 +101,39 @@ class PlayerCollection(object):
         # to populate all games players
         self.player_ids = id_set
 
+    def get_player(self, player_id) -> BasePlayer:
+        """Return a player object based on player_id passed"""
+        # if we havent created players
+        if not self.players:
+            self.create_players()
+
+        for player in self.players:
+            if player.player_id == player_id:
+                return player
+
+        raise KeyError('No player id' + str(player_id))
+
+    def skaters(self):
+        """Iterable of skaters in a collection"""
+        # combine forwards and defense
+        skaters = self.forwards + self.defense
+        for skater in skaters:
+            yield self.players[skater]
+
+    def goalies(self):
+        """Iterable of goalies in Collection"""
+        for goalie in self.goalies:
+            yield self.players[goalie]
+
     def create_players(self, data=None):
         """Utility method so we can have control on when to call
         the expensive create logic."""
 
-        if self.players_created:
+        if self.players:
             return
 
         if not data:
-            data = request(
+            data = utils.request(
                 Url.GAME, {'game_id': self.team.game.game_id}
             )
 
@@ -123,23 +148,65 @@ class PlayerCollection(object):
         if self.need_to_update:
             self.replace_players()
 
+        index = 0
         for player in self.player_ids:
+            # strip off the ID part
             player_data = data_copy['ID' + str(player)]
+
+            # parse and create player
             pd = parser.player_stats_game(player_data)
+            player_obj = self._class(self.db_conn, player, pd)
 
             # if a player is scratched parser returns None
             if pd is not None:
-                player_obj = self._class(self.db_conn, player, pd)
-
                 # keep index pointers for each player object in self.players
                 if player_obj.position == 'G':
-                    self.goalies.append(len(self.players))
+                    self.goalies.append(index)
+                elif player_obj.position == 'D':
+                    self.defense.append(index)
                 else:
-                    self.skaters.append(len(self.players))
+                    self.forwards.append(index)
+            else:
+                self.not_playing.append(index)
 
-                self.players.append(player_obj)
+            # increment index and add the player_obj
+            index += 1
+            self.players.append(player_obj)
 
-        self.players_created = True
+    def top_scorers(self):
+        ts = execute_constant(
+            self.db_conn,
+            db_const.TOP_SCORER_TEAM.format(
+                self.team.team_id, utils.get_season_number(
+                    self.team.game.game_date
+                )
+            )
+        )
+
+        for player in ts:
+            if player['goals_rank'] == 1:
+                goals = {
+                    'value': player['goals'],
+                    'id': player['player_id']
+                }
+
+            if player['assists_rank'] == 1:
+                assists = {
+                    'value': player['assists'],
+                    'id': player['player_id']
+                }
+
+            if player['points_rank'] == 1:
+                points = {
+                    'value': player['points'],
+                    'id': player['player_id']
+                }
+
+        return {
+            'goals': goals,
+            'assists': assists,
+            'points': points
+        }
 
     def update_data(self, data):
 
@@ -152,8 +219,8 @@ class PlayerCollection(object):
         if self.need_to_update:
             self.replace_players()
 
-        # basically a noop if false.
-        if self.players_created:
+        # basically a noop if players is empty list.
+        if self.players:
             for player in self.players:
                 player_data = data_copy['ID' + str(player.player_id)]
                 player.update_data(player_data)

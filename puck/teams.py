@@ -6,7 +6,7 @@ import puck.parser as parser
 from puck.database.db import select_stmt
 from puck.player import GamePlayer, PlayerCollection
 from puck.urls import Url
-from puck.utils import request
+from puck.utils import request, get_precision
 
 
 class TeamIDException(Exception):
@@ -149,7 +149,6 @@ class GameStatsTeam(BaseTeam):
         BaseTeam: This is the base Team class
 
     Attributes:
-        TODO
 
     Raises:
         InvalidTeamType: If 'home' or 'away' is not supplied
@@ -364,6 +363,9 @@ class GameStatsTeam(BaseTeam):
             self.shootout.goals = data['liveData']['linescore']['shootoutInfo'][team_type]['scores']  # noqa
             self.shootout.attempts = data['liveData']['linescore']['shootoutInfo'][team_type]['attempts']  # noqa
 
+    def top_scorers(self):
+        return self.players.top_scorers()
+
 
 class TeamSeasonStats(BaseTeam):
     """
@@ -376,6 +378,26 @@ class TeamSeasonStats(BaseTeam):
             self.name = name
             self.value = value
             self.rank = rank
+
+        def rank_suffix(self):
+            if self.rank is None:
+                return None
+            elif self.rank % 10 == 1 and (self.rank > 20 or self.rank < 10):
+                return str(self.rank) + 'st'
+            elif self.rank % 10 == 2 and (self.rank > 20 or self.rank < 10):
+                return str(self.rank) + 'nd'
+            elif self.rank % 10 == 3 and (self.rank > 20 or self.rank < 10):
+                return str(self.rank) + 'rd'
+            else:
+                return str(self.rank) + 'th'
+
+        def format_value(self):
+            prec = get_precision(self.name)
+
+            if prec is None:
+                return str(self.value)
+            else:
+                return '{:.{prec}f}'.format(self.value, prec=prec)
 
     def __init__(self, team_id, db_conn, stats):
         super().__init__(team_id, db_conn)
@@ -392,12 +414,31 @@ class TeamSeasonStats(BaseTeam):
                     key, val, stats[key + '_rank']
                 ))
             except KeyError as keyerr:
-                # this is gross. It catches games_played_rank key error and
-                # This is the only key with no rank,
-                # faster than having a dedicated if statement
+                # this is gross. four keys dont have an accompanying rank
+                # I think this is faster thought because there is no
+                # if statement continuing to run
                 setattr(self, key, self.ValueRank(key, val))
 
-    def stat_items(self):
+    def fetch_splits(self) -> dict:
+        """Fetch a teams splits"""
+        for stat in self.splits_items():
+            if stat.name == 'home_record':
+                home = stat.value
+            elif stat.name == 'away_record':
+                away = stat.value
+            elif stat.name == 'last_ten':
+                last_ten = stat.value
+            else:
+                streak = stat.value
+
+        return {
+            'home_record': home,
+            'away_record': away,
+            'last_ten': last_ten,
+            'streak': streak
+        }
+
+    def all_items(self):
         """Returns iterable of stat"""
         # attributes of BaseTeam that we dont want to return
         base_attrs = [
@@ -411,4 +452,31 @@ class TeamSeasonStats(BaseTeam):
             if i in base_attrs:
                 continue
             else:
-                yield i, self.__dict__[i]
+                yield self.__dict__[i]
+
+    def ranked_items(self):
+        """Returns iterable of all stats that have a rank"""
+        # attributes of BaseTeam that we dont want to return
+        base_attrs = [
+            'team_id', 'full_name', 'abbreviation',
+            'division', 'conference', 'franchise_id'
+        ]
+
+        for i in self.__dict__.keys():
+            if i in base_attrs:
+                continue
+            if self.__dict__[i].rank is None:
+                continue
+            else:
+                yield self.__dict__[i]
+
+    def splits_items(self):
+        """Returns iterable of Team splits"""
+        # attributes of BaseTeam that we dont want to return
+        splits = [
+            'home_record', 'away_record', 'streak', 'last_ten'
+        ]
+
+        for i in self.__dict__.keys():
+            if i in splits:
+                yield self.__dict__[i]

@@ -209,6 +209,11 @@ def humanize_name(name, short=False) -> str:
     return const.HUMANIZE[name][int(short)]
 
 
+def get_precision(name):
+    # 2nd index is the precision index
+    return const.HUMANIZE[name][2]
+
+
 def team_to_id(team) -> str:
     """
     Return a teams ID number. Accepts both Long Name and Abbreviation.

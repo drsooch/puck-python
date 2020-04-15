@@ -1,29 +1,34 @@
 import urwid
 
 
+def Text(string) -> urwid.Text:
+    """Simple wrapper to build a centered Text widget"""
+    return urwid.Text(string, 'center')
+
+
 def gametime_text_widget(game) -> urwid.Widget:
     """Helper function to generate the Game Time Text Widget"""
     if game.is_preview:
-        time = urwid.Text(game.start_time, align='center')
+        time = Text(game.start_time)
     elif game.is_live:
         if game.in_intermission:
-            time = urwid.Text(
-                game.time + ' ' + game.period, align='center'
+            time = Text(
+                game.time + ' ' + game.period
             )
         else:
             time = urwid.Pile(
                 [
-                    urwid.Text(game.time, align='center'),
-                    urwid.Text(game.period, align='center')
+                    Text(game.time),
+                    Text(game.period)
                 ]
             )
     else:
         if game.period == 'OT':
-            time = urwid.Text(u'Final OT', align='center')
+            time = Text(u'Final OT')
         elif game.period == 'SO':
-            time = urwid.Text(u'Final SO', align='center')
+            time = Text(u'Final SO')
         else:
-            time = urwid.Text(u'Final', align='center')
+            time = Text(u'Final')
 
     return time
 
@@ -58,27 +63,43 @@ class SelectableText(urwid.WidgetWrap):
             on_press (function, optional): a function for callback when enter
                                            or space is pressed.
             user_data (any, optional): any data that needs to be passed to the
-                                       callback.
+                                       on_press.
         """
         self.label = text
-        self.text = urwid.Text(self.label, align='center')
-        self.wrapped_text = urwid.AttrMap(self.text, None, 'menu_focus')
-        self._listbox = urwid.ListBox([self.wrapped_text])
-        self.callback = on_press
+        self.text = Text(self.label)
+        wrapped_text = urwid.AttrMap(self.text, None, 'menu_focus')
+        listbox = urwid.ListBox([wrapped_text])
+
+        self.on_press = on_press
         self.data = user_data
-        widget = urwid.BoxAdapter(self._listbox, 1)
+
+        widget = urwid.BoxAdapter(listbox, 1)
         super().__init__(widget)
 
     def keypress(self, size, key):
-        if self.callback is None:
+        if self.on_press is None:
             return key
 
         if key == " ":
-            self.callback(self, self.data)
+            self.on_press(self)
         if key == "enter":
-            self.callback(self, self.data)
+            self.on_press(self)
 
         return key
+
+
+class BoldText(urwid.WidgetWrap):
+    def __init__(self, text, align='center'):
+        self.label = text
+        self.text = urwid.Text(text, align=align)
+        widget = urwid.AttrMap(self.text, 'bold_text')
+
+        super().__init__(widget)
+
+
+class MainDivider(urwid.Divider):
+    def __init__(self):
+        super().__init__(div_char='\u2500')
 
 
 class BaseContext(object):
@@ -126,5 +147,12 @@ class BaseDisplay(object):
     def update(self):
         raise NotImplementedError('Implement an update method for the display')
 
+    def build_display(self):
+        raise NotImplementedError('Implement an update method for the display')
+
     def __repr__(self):
         return f'{self.__class__} -> {self.__dict__}'
+
+
+LEFT_ARROW = Text('\u25C0')
+RIGHT_ARROW = Text('\u25B6')

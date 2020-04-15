@@ -8,7 +8,6 @@ All functions return a dictionary of with cleaned up normalized keys.
 from collections import defaultdict
 
 import arrow
-
 import puck.constants as const
 
 
@@ -39,7 +38,7 @@ def game(data) -> defaultdict:
     ).to('local').strftime('%I:%M %p %Z')
     parsed_data['game_date'] = arrow.get(
         game_data['datetime']['dateTime']
-    ).to('local').date()
+    ).to('local')
 
     if parsed_data['game_status'] in const.GAME_STATUS['Preview']:
         parsed_data['period'] = None
@@ -261,7 +260,7 @@ def skater_stats_game(data) -> defaultdict:
         defaultdict: Parsed Data.
     """
     parsed_data = defaultdict(lambda: None)
-
+    # XXX FIX THIS INTO USING GET() W/ PROPER DEFAULT VALS
     parsed_data['time_on_ice'] = data['timeOnIce']
     parsed_data['assists'] = data['assists']
     parsed_data['goals'] = data['goals']
@@ -367,15 +366,12 @@ def team_season_stats(data, metadata=False, season=None) -> defaultdict:
 
 def team_standings_stats(team_id, division, season, parsed_data):
     """Queries the Standings endpoint for Regulation Wins"""
-    from puck.utils import get_season_number
-
-    if season != get_season_number():
-        return
-
     from puck.utils import request
     from puck.urls import Url
 
-    data = request(Url.STANDINGS, {'team_id': team_id}, {'season': (season)})
+    data = request(Url.STANDINGS, params={
+        'expand': 'standings.record', 'season': (season)
+    })
 
     # maps division to an index that Url.Standings returns
     divisions = {
@@ -388,9 +384,36 @@ def team_standings_stats(team_id, division, season, parsed_data):
 
     for i in data:
         if i['team']['id'] == team_id:
-            # we only need this one column :(
-            parsed_data['reg_wins'] = i['row']
-            break
+            # tie breaker
+            parsed_data['reg_ot_wins'] = i['row']
+            # streak of wins, losses, or OTL
+            parsed_data['streak'] = i['streak']['streakCode']
+            game_splits = i['records']['overallRecords']
+
+            # last ten games
+            last_ten = map(str, [
+                game_splits[3]['wins'],
+                game_splits[3]['losses'],
+                game_splits[3]['ot']
+            ])
+            parsed_data['last_ten'] = '-'.join(last_ten)
+
+            # home split
+            home_record = map(str, [
+                game_splits[0]['wins'],
+                game_splits[0]['losses'],
+                game_splits[0]['ot']
+            ])
+            parsed_data['home_record'] = '-'.join(home_record)
+
+            # away split
+            away_record = map(str, [
+                game_splits[1]['wins'],
+                game_splits[1]['losses'],
+                game_splits[1]['ot']
+            ])
+            parsed_data['away_record'] = '-'.join(away_record)
+            return
 
 
 def roster(data) -> list:
