@@ -24,6 +24,7 @@ PALETTE = [
     ('menu_focus', 'standout', ''),
     ('dp_focus', 'black', 'white'),
     ('dp_no_focus', 'white', 'black'),
+    ('bold_text', 'bold', 'black'),
 ]
 
 
@@ -232,12 +233,6 @@ def create_opening_page(rows) -> urwid.LineBox:
     box = urwid.BoxAdapter(urwid.Filler(text), rows)
 
     return urwid.LineBox(box)
-
-
-def create_prog_bar() -> urwid.ProgressBar:
-    pb = urwid.ProgressBar('main', 'inv_main', 50, 100, 'main')
-
-    return pb
 
 
 class Sizing(object):

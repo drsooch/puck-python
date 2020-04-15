@@ -130,9 +130,7 @@ class GamePanel(urwid.WidgetWrap):
         elif self.app.size == 0:
             count = 0
             cards = [
-                ('weight', 2, self._empty_card()),
-                urwid.Text(u'No games today. Select another date from above.'),
-                ('weight', 2, self._empty_card())
+                urwid.Text(u'No games today. Select another date from above.', 'center'),
             ]
         else:
             count = self.app.size

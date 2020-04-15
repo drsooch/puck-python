@@ -1,20 +1,22 @@
 import asyncio
 from collections import defaultdict
 
-import arrow
 import urwid
-from additional_urwid_widgets import IndicativeListBox
 
+import arrow
 import puck.constants as const
 import puck.database.db_constants as db_const
 import puck.utils as utils
+from additional_urwid_widgets import IndicativeListBox
 from puck.database.db import batch_update_db, execute_constant
 from puck.dispatcher import Dispatch
 from puck.games import BaseGame, get_game_ids
-from puck.tui.tui_utils import (BaseContext, BaseDisplay, SelectableText,
-                                box_wrap, gametime_text_widget, long_strf)
-from puck.urls import Url
 from puck.teams import TeamSeasonStats
+from puck.tui.tui_utils import (LEFT_ARROW, RIGHT_ARROW, BaseContext,
+                                BaseDisplay, BoldText, MainDivider,
+                                SelectableText, Text, box_wrap,
+                                gametime_text_widget, long_strf)
+from puck.urls import Url
 
 BOX_STATS = [
     ('Team', 'abbreviation'),
@@ -61,8 +63,8 @@ class GamesContext(BaseContext):
                 self.display = GameDisplay(self.app, self, self._rows)
         elif btn.label == 'Select Date':
             self.app._date_picker(btn=btn, caller=self)
-        elif btn.label == 'Select Game' or isinstance(btn.data, BaseGame):
-            self.display = SingleGameDisplay(
+        elif isinstance(btn.data, BaseGame):
+            self.display = SingleGamePreviewDisplay(
                 self.app, self, self._rows, btn.data
             )
         elif btn.label == 'Schedule':
@@ -181,15 +183,15 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 
         home = urwid.Pile(
             [
-                urwid.Text(game.home.abbreviation, align='center'),
-                urwid.Text(str(game.home.goals), align='center')
+                Text(game.home.abbreviation),
+                Text(str(game.home.goals))
             ]
         )
 
         away = urwid.Pile(
             [
-                urwid.Text(game.away.abbreviation, align='center'),
-                urwid.Text(str(game.away.goals), align='center')
+                Text(game.away.abbreviation),
+                Text(str(game.away.goals))
             ]
         )
 
@@ -218,9 +220,9 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
 
             pile = urwid.Pile(
                 [
-                    urwid.Text(stat[0], 'center'),
-                    urwid.Text(str(val_h), 'center'),
-                    urwid.Text(str(val_a), 'center')
+                    Text(stat[0]),
+                    Text(str(val_h)),
+                    Text(str(val_a))
                 ]
             )
 
@@ -235,9 +237,7 @@ class GameDisplay(urwid.WidgetWrap, BaseDisplay):
         """Main logic for building the box scores for GamesDisplay"""
         # TODO: Clean up logic for column creation
         date = self.display_date.strftime('%A %B %d, %Y')
-        date_text = urwid.Text(
-            date + ' | Game(s): ' + str(self.size), align='center'
-        )
+        date_text = Text(date + ' | Game(s): ' + str(self.size))
 
         cards = [urwid.Divider('-'), date_text, urwid.Divider('-')]
 
@@ -302,12 +302,14 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
 
         # populate the current_weeks_games
         self._request_games()
-        widget = self.build_schedule()
+        widget = self.build_display()
 
         urwid.WidgetWrap.__init__(self, widget)
 
+# -------------------------- Top Level Methods --------------------------#
     def update(self):
         pass
+
 # -------------------------- Button Methods --------------------------#
 
     def previous_page(self, btn, data=None):
@@ -329,33 +331,30 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
         self._w = self.build_schedule()
 
 # -------------------------- Helper Methods --------------------------#
-    def build_schedule(self):
+    def build_display(self):
         """Main logic for building the schedule widget."""
-        title = urwid.Text(
+        title = Text(
             'Week of {} to {}'.format(
                 long_strf(self.current_week_start),
                 long_strf(self.current_week_end)
-            ), 'center'
+            )
         )
-        widgets = [urwid.Divider('-'), title, urwid.Divider('-')]
+        widgets = [MainDivider(), title, MainDivider()]
 
         for day, games in self.current_week_games.items():
-            widgets.append(urwid.Text(str(long_strf(day)), 'center'))
+            widgets.append(Text(str(long_strf(day))))
             widgets.append(urwid.Divider('-'))
             for game in games:
-                teams = urwid.Text(
+                teams = Text(
                     game.away.full_name + ' at ' + game.home.full_name,
-                    align='center'
+
                 )
                 if game.is_live or game.is_final:
-                    game_status = urwid.Text(
-                        str(game.away.goals) + ' - ' + str(game.home.goals),  # noqa
-                        align='center'
+                    game_status = Text(
+                        str(game.away.goals) + ' - ' + str(game.home.goals)
                     )
                 else:
-                    game_status = urwid.Text(
-                        game.start_time, 'center'
-                    )
+                    game_status = Text(game.start_time)
 
                 widgets.append(
                     urwid.Columns([teams, game_status])
@@ -400,7 +399,7 @@ class ScheduleDisplay(urwid.WidgetWrap, BaseDisplay):
             self.current_week_games[game.game_date].append(game)
 
 
-class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
+class SingleGamePreviewDisplay(urwid.WidgetWrap, BaseDisplay):
     """Displays a single game's full stats."""
 
     def __init__(self, app, ctx, row, game):
@@ -416,6 +415,7 @@ class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
         self.game.away.init_players(data)
         self.game.home.init_players(data)
 
+        # call to update
         self.game.update_data(data)
 
         team_stats = execute_constant(
@@ -432,7 +432,7 @@ class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
             team_stats[const.TEAM_INDEX[self.game.away.team_id]]
         )
 
-        widget = self.build_preview()
+        widget = self.build_display()
         urwid.WidgetWrap.__init__(self, widget)
 
 # -------------------------- Top Level Methods --------------------------#
@@ -446,78 +446,252 @@ class SingleGameDisplay(urwid.WidgetWrap, BaseDisplay):
         # this is the internal attribute widget
         self._w = self.build_display()
 
-    def roster_update(self):
-        """Update any needed roster. SHOULD NEVER BE USED. USING THIS AS A
-        PLACEHOLDER CURRENTLY."""
-        replacements = []
-        if self.game.home.players.need_to_update:
-            replacements.extend(self.game.home.players.need_to_update)
-        if self.game.away.players.need_to_update:
-            replacements.extend(self.game.away.players.need_to_update)
-
-        asyncio.run(
-            batch_update_db(
-                replacements, self.app.db_conn, Dispatch.player_info()
-            )
-        )
 # -------------------------- Helper Methods --------------------------#
+    def fetch_top_scorers(self):
+        """Utility method to grab top scorers of both home and away"""
+        away = self.game.away.top_scorers()
+        home = self.game.home.top_scorers()
 
+        # convert to Text widget
+        for key, val in away.items():
+            player = self.game.away.players.get_player(val['id'])
+            away[key] = Text(
+                player.first_name + ' ' + player.last_name
+                + ' - ' + str(val['value'])
+            )
+
+        for key, val in home.items():
+            player = self.game.home.players.get_player(val['id'])
+            home[key] = Text(
+                str(val['value']) + ' - ' +
+                player.first_name + ' ' + player.last_name
+            )
+
+        return home, away
+
+    def fetch_splits(self):
+        """Utility method to grab team splits"""
+        away = self.away_stats.fetch_splits()
+        home = self.home_stats.fetch_splits()
+
+        # convert values to Text widgets
+        for key, val in home.items():
+            home[key] = Text('{:^10}'.format(val))
+
+        for key, val in away.items():
+            away[key] = Text('{:^10}'.format(val))
+
+        return home, away
+
+    def fetch_ranks(self):
+        """Utility Method to get team ranks"""
+        away = self.away_stats.ranked_items()
+        home = self.home_stats.ranked_items()
+
+        widgets = []
+
+        # convert into Text widgets
+        for hstat, astat in zip(home, away):
+            col = []
+            col.append(
+                Text(
+                    '{:^10}'.format(astat.format_value()) + ' - ' +
+                    '{:^10}'.format(astat.rank_suffix())
+                )
+            )
+
+            if astat.rank < hstat.rank:
+                col.append(LEFT_ARROW)
+            else:
+                col.append(Text(' '))
+
+            col.append(Text(utils.humanize_name(astat.name)))
+
+            if astat.rank < hstat.rank:
+                col.append(Text(' '))
+            else:
+                col.append(RIGHT_ARROW)
+
+            col.append(
+                Text(
+                    '{:^10}'.format(hstat.rank_suffix()) + ' - ' +
+                    '{:^10}'.format(hstat.format_value())
+                )
+            )
+
+            widgets.append(urwid.Columns(col))
+
+        return widgets
+
+# -------------------------- Builder Methods --------------------------#
     def build_display(self) -> urwid.LineBox:
-        game_time = gametime_text_widget(self.game)
-
-        home = urwid.Text(self.game.home.full_name.upper(), 'center')
-        away = urwid.Text(self.game.away.full_name.upper(), 'center')
-
-        pile = urwid.Pile(
-            [
-                urwid.Divider('-'),
-                urwid.Columns([home, game_time, away]),
-                urwid.Divider('-')
-            ]
-        )
-
-        return urwid.LineBox(box_wrap(pile, self._rows))
-
-    def build_preview(self) -> urwid.LineBox:
-
         title = urwid.Columns(
             [
-                urwid.Text(self.game.home.full_name.upper(), 'center'),
+                BoldText(self.game.away.full_name.upper()),
                 gametime_text_widget(self.game),
-                urwid.Text(self.game.away.full_name.upper(), 'center')
+                BoldText(self.game.home.full_name.upper())
             ]
         )
 
         record = urwid.Columns(
             [
-                urwid.Text(
-                    str(self.away_stats.wins.value) + '-' +
-                    str(self.away_stats.losses.value) + '-' +
-                    str(self.away_stats.ot_losses.value),
-                    'center'
-
+                Text(
+                    '-'.join(
+                        map(str, [
+                            self.away_stats.wins.value,
+                            self.away_stats.losses.value,
+                            self.away_stats.ot_losses.value
+                        ])
+                    )
                 ),
-                urwid.Text('', 'center'),
-                urwid.Text(
-                    str(self.home_stats.wins.value) + '-' +
-                    str(self.home_stats.losses.value) + '-' +
-                    str(self.home_stats.ot_losses.value),
-                    'center'
-
-                ),
+                Text(''),
+                Text(
+                    '-'.join(
+                        map(str, [
+                            self.home_stats.wins.value,
+                            self.home_stats.losses.value,
+                            self.home_stats.ot_losses.value
+                        ])
+                    )
+                )
             ]
         )
 
-        main = urwid.Pile(
-            [
-                urwid.Divider('-'),
-                title,
-                record,
-                urwid.Divider('-'),
-            ]
-        )
+        main_widgets = [
+            MainDivider(),
+            title,
+            record,
+            MainDivider(),
+        ]
 
-        return urwid.LineBox(box_wrap(main, self._rows))
+        # build each component
+        splits = self._build_split()
+        top_scorers = self._build_top_scorers()
+        stats = self._build_team_stats()
 
-    def _build_record(self):
+        # add the component widgets to the main list
+        main_widgets.extend(splits)
+        main_widgets.extend(top_scorers)
+        main_widgets.extend(stats)
+
+        # wrap in a list walker to put into an IDLB
+        lw = urwid.SimpleFocusListWalker(main_widgets)
+        idlb = IndicativeListBox(lw)
+
+        box = urwid.BoxAdapter(idlb, self._rows)
+
+        return urwid.LineBox(box)
+
+    def _build_split(self) -> list:
+        # the 4 columns to build
+        home_record = Text(utils.humanize_name('home_record'))
+        away_record = Text(utils.humanize_name('away_record'))
+        last_ten = Text(utils.humanize_name('last_ten'))
+        streak = Text(utils.humanize_name('streak'))
+
+        home_split, away_split = self.fetch_splits()
+
+        widgets = [
+            BoldText('Splits'),
+            urwid.Divider('-'),
+            urwid.Columns([
+                away_split['home_record'],
+                home_record,
+                home_split['home_record']
+            ]),
+            urwid.Divider(),
+            urwid.Columns([
+                away_split['away_record'],
+                away_record,
+                home_split['away_record'],
+            ]),
+            urwid.Divider(),
+            urwid.Columns([
+                away_split['last_ten'],
+                last_ten,
+                home_split['last_ten']
+            ]),
+            urwid.Divider(),
+            urwid.Columns([
+                away_split['streak'],
+                streak,
+                home_split['streak'],
+            ])
+        ]
+
+        return widgets
+
+    def _build_top_scorers(self):
+        home_ts, away_ts = self.fetch_top_scorers()
+
+        # 3 columns to build
+        points = Text(utils.humanize_name('points'))
+        goals = Text(utils.humanize_name('goals'))
+        assists = Text(utils.humanize_name('assists'))
+
+        widgets = [
+            urwid.Divider('-'),
+            BoldText('Top Scorers'),
+            urwid.Divider('-'),
+            urwid.Columns([
+                away_ts['points'],
+                points,
+                home_ts['points']
+            ]),
+            urwid.Divider(),
+            urwid.Columns([
+                away_ts['goals'],
+                goals,
+                home_ts['goals']
+            ]),
+            urwid.Divider(),
+            urwid.Columns([
+                away_ts['assists'],
+                assists,
+                home_ts['assists']
+            ]),
+        ]
+
+        return widgets
+
+    def _build_team_stats(self):
+        stats = self.fetch_ranks()
+
+        widgets = [
+            urwid.Divider('-'),
+            BoldText('Team Statistics'),
+            urwid.Divider('-')
+        ]
+
+        for stat in stats:
+            widgets.append(urwid.Divider())
+            widgets.append(stat)
+
+        return widgets
+
+    def _build_footer(self):
         pass
+
+
+class SingleGameLiveDisplay(urwid.WidgetWrap, BaseDisplay):
+    """Builds a Game's Live Display"""
+
+    def __init__(self, app, ctx, row, game):
+        BaseDisplay.__init__(self, app, ctx, row)
+
+        self.game = game
+
+        data = utils.request(
+            Url.GAME, {'game_id': self.game.game_id}
+        )
+
+        # This display requires players to initialized.
+        self.game.away.init_players(data)
+        self.game.home.init_players(data)
+
+        # call to update
+        self.game.update_data(data)
+
+        widget = urwid.Text('Hi')
+
+        urwid.WidgetWrap.__init__(self, widget)
