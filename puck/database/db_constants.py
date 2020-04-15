@@ -19,6 +19,16 @@ class TableColumns(Enum):
         "handedness", "rookie", "age",
     ]
 
+    TEAM_SEASON_CLASS = [
+        "games_played", "wins", "losses", "ot_losses", "points", "pt_pct",
+        "goals_for_pg", "goals_ag_pg", "evgga_ratio", "pp_pct", "pp_goals_for",
+        "pp_opp", "pk_pct", "pp_goals_ag", "shots_for_pg", "shots_ag_pg",
+        "win_score_first", "win_opp_score_first", "win_lead_first_per",
+        "win_lead_second_per", "win_outshoot_opp", "win_outshot_by_opp",
+        "faceoffs_taken", "faceoff_wins", "faceoff_pct", "save_pct",
+        "shooting_pct"
+    ]
+
 
 LEAGUE_TABLE = """
 CREATE TABLE IF NOT EXISTS league (
@@ -159,11 +169,15 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
     wins                  SMALLINT,
     losses                SMALLINT,
     ot_losses             SMALLINT,
+<<<<<<< HEAD
     reg_ot_wins           SMALLINT,
     streak                VARCHAR(7),
     last_ten              VARCHAR(7),
     home_record           VARCHAR(9),
     away_record           VARCHAR(9),
+=======
+    reg_wins              SMALLINT,
+>>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
     ties                  SMALLINT,
     points                SMALLINT,
     pt_pct                REAL,
@@ -205,8 +219,13 @@ TEAM_RANKED_SELECT = """SELECT
     RANK() OVER (ORDER BY losses ASC) AS losses_rank,
     ot_losses,
     RANK() OVER (ORDER BY ot_losses ASC) AS ot_losses_rank,
+<<<<<<< HEAD
     reg_ot_wins,
     RANK() OVER (ORDER BY reg_ot_wins DESC) AS reg_ot_wins_rank,
+=======
+    reg_wins,
+    RANK() OVER (ORDER BY reg_wins DESC) AS reg_wins_rank,
+>>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
     points,
     RANK() OVER (ORDER BY points DESC) AS points_rank,
     pt_pct,

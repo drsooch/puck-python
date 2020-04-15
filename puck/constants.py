@@ -94,6 +94,7 @@ CONFERENCE_NAMES = {
     5: 'Western', 6: 'Eastern'
 }
 
+<<<<<<< HEAD
 # KEY: [LONG_NAME, SHORT_NAME, PRECISION]
 HUMANIZE = {
     # team stuff
@@ -156,4 +157,36 @@ HUMANIZE = {
     'plus_minus': ['+/-', '+/-', None],
     'blocked': ['Blocked Shots', 'BS', None],
     'shifts': ['Shifts', 'Shifts', None]
+=======
+HUMANIZE = {
+    'games_played': ['Games Played', 'GP'],
+    'wins': ['Wins', 'W'],
+    'losses': ['Losses', 'L'],
+    'ot_losses': ['OT Losses', 'OTL'],
+    'ties': ['Ties', 'T'],
+    'points': ['Points', 'P'],
+    'pt_pct': ['Points Pct', 'P%'],
+    'goals_for_pg': ['Goals For PG', 'GFPG'],
+    'goals_ag_pg': ['Goals Against PG', 'GAPG'],
+    'evgga_ratio': ['ES Goals Ratio', 'EVGR'],
+    'pp_pct': ['Power Play Pct', 'PP%'],
+    'pp_goals_for': ['Power Play Goals', 'PPGF'],
+    'pp_opp': ['Power Play Opportunites', 'PP Opp'],
+    'pk_pct': ['Penalty Kill Pct', 'PK%'],
+    'pp_goals_ag': ['Power Play Goals Against', 'PPGA'],
+    'shots_for_pg': ['Shots For PG', 'SFPG'],
+    'shots_ag_pg': ['Shots Against PG', 'SAPG'],
+    'win_score_first': ['Win Pct Score First', 'W% SF'],
+    'win_opp_score_first': ['Win Pct Opp Score First', 'W% OSF'],
+    'win_lead_first_per': ['Win Pct Lead First', 'W% LF'],
+    'win_lead_second_per': ['Win Pct Leaf Second', 'W% LS'],
+    'win_outshoot_opp': ['Win Pct Outshoot Opp', 'W% OS Opp'],
+    'win_outshot_by_opp': ['Win Pct Outshot by Opp', 'W% Opp OS'],
+    'faceoffs_taken': ['Faceoffs Taken', 'FO'],
+    'faceoff_wins': ['Faceoffs Won', 'FOW'],
+    'faceoff_losses': ['Faceoffs Lost', 'FOL'],
+    'faceoff_pct': ['Faceoff Pct', 'FO%'],
+    'save_pct': ['Save Pct', 'SV%'],
+    'shooting_pct': ['Shooting Pct', 'S%'],
+>>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
 }

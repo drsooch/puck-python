@@ -366,12 +366,24 @@ def team_season_stats(data, metadata=False, season=None) -> defaultdict:
 
 def team_standings_stats(team_id, division, season, parsed_data):
     """Queries the Standings endpoint for Regulation Wins"""
+<<<<<<< HEAD
     from puck.utils import request
     from puck.urls import Url
 
     data = request(Url.STANDINGS, params={
         'expand': 'standings.record', 'season': (season)
     })
+=======
+    from puck.utils import get_season_number
+
+    if season != get_season_number():
+        return
+
+    from puck.utils import request
+    from puck.urls import Url
+
+    data = request(Url.STANDINGS, {'team_id': team_id}, {'season': (season)})
+>>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
 
     # maps division to an index that Url.Standings returns
     divisions = {
@@ -384,6 +396,7 @@ def team_standings_stats(team_id, division, season, parsed_data):
 
     for i in data:
         if i['team']['id'] == team_id:
+<<<<<<< HEAD
             # tie breaker
             parsed_data['reg_ot_wins'] = i['row']
             # streak of wins, losses, or OTL
@@ -414,6 +427,11 @@ def team_standings_stats(team_id, division, season, parsed_data):
             ])
             parsed_data['away_record'] = '-'.join(away_record)
             return
+=======
+            # we only need this one column :(
+            parsed_data['reg_wins'] = i['row']
+            break
+>>>>>>> 6ef19c728f435d8fe1965f3d9891b980e7d00a63
 
 
 def roster(data) -> list:
