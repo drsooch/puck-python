@@ -30,6 +30,7 @@ class BaseTeam(object):
         abbreviation (str): 3-Letter team abbreviation
         division (int): Integer denoting a team's division
         conference (int): Integer denoting a team's conference
+        franchise_id (int): The team's franchise ID
 
     Raises:
         InvalidTeamType: Creation fails when an invalid team type is passed
@@ -40,9 +41,7 @@ class BaseTeam(object):
 
         Args:
             team_id (int): API ID number for a team
-            db_conn (sqlite3.Connection): Connection object to the database
-        Raises:
-            InvalidTeamType
+            db_conn (psycopg2.Connection): Connection object to the database
         """
 
         # get data from internal database
@@ -65,10 +64,14 @@ class BaseTeam(object):
 class BannerTeam(BaseTeam):
     """Simple Team class for "banner" display.
 
+    Inherits:
+        BaseTeam
+
     Attributes:
         goals (int): a team's goals
         team_type (str): "home" or "away"
-        _game (Game): The parent container that holds reference to this object.
+        game (BannerGame): The parent container that holds
+            reference to this object.
 
     Raises:
         InvalidTeamType: If 'home' or 'away' is not supplied
@@ -146,9 +149,27 @@ class GameStatsTeam(BaseTeam):
     Data is collected from the Url.GAME endpoint.
 
     Inherits:
-        BaseTeam: This is the base Team class
+        BaseTeam
 
     Attributes:
+        team_type (str): Either "home" or "away"
+        game (BaseGame): Game object
+        game_id (int): Game ID
+        goals (int): goals scored
+        pims (int): penalty minutes
+        shots (int): number of shots
+        pp_pct (float): powerplay percent
+        pp_goals (int): powerplay goals
+        pp_att (int): powerplay attempts
+        faceoff_pct (float): faceoff percent
+        blocked (int): blocked shots
+        takeaways (int): takeaways
+        giveaways (int): giveaways
+        hits (int): hits
+        periods (PeriodStats): Period Stats object
+        shootout (ShootoutStats): ShootoutStats object
+        id_list (list of int): list of player_ids
+        players (PlayerCollection): PlayerCollection object
 
     Raises:
         InvalidTeamType: If 'home' or 'away' is not supplied
@@ -166,12 +187,24 @@ class GameStatsTeam(BaseTeam):
             in this class.
 
         Attributes:
-            Unsure lol.
+            num_per (int): number of periods played
+            data (list of Period): list of each period played as Period object
+            total_shots (int): Number of shots overall
         """
         class Period(object):
-            """Inner Class. Used for better accessing period stats."""
+            """Inner Class. Used for better accessing period stats.
+            Attributes:
+                name (str): Name of the period i.e. '3rd'
+                goals (int): Number of goals in the period
+                shots (int): Number of shots in the period
+            """
 
             def __init__(self, name, data):
+                """
+                Args:
+                    name (str): name of the period ie '3rd'
+                    data (dict): JSON representation of the game
+                """
                 self.name = name
 
                 parsed_data = parser.period(data)
@@ -195,6 +228,12 @@ class GameStatsTeam(BaseTeam):
                 return f'{self.__class__} -> {self.__dict__}'
 
         def __init__(self, periods, team_type):
+            """
+            Args:
+                periods (list): List of JSON dicts representing
+                    each period played
+                team_type (str): Either "home" or "away"
+            """
             self.num_per = len(periods)
 
             data = []
@@ -228,7 +267,12 @@ class GameStatsTeam(BaseTeam):
             return f'{self.__class__} -> {self.__dict__}'
 
     class ShootoutStats(object):
-        """Inner Class. Used for better accessing shootout stats."""
+        """Inner Class. Used for better accessing shootout stats.
+
+        Attributes:
+            goals (int)
+            attempts (int): shot attempts
+        """
 
         def __init__(self, goals=None, attempts=None):
             self.goals = goals
@@ -245,7 +289,7 @@ class GameStatsTeam(BaseTeam):
                                            that inherits BannerGame
             game_id (int): API Game ID
             team_type (str): Either 'home' or 'away'
-            game_info (dict, optional): JSON API response represented as
+            data (dict, optional): JSON API response represented as
                                         a dictionary
 
         Raises:
@@ -418,6 +462,9 @@ class TeamSeasonStats(BaseTeam):
                 # I think this is faster thought because there is no
                 # if statement continuing to run
                 setattr(self, key, self.ValueRank(key, val))
+
+        import puck.debug as d
+        d.debug('../TeamSeasonStats.json', self.__dict__)
 
     def fetch_splits(self) -> dict:
         """Fetch a teams splits"""

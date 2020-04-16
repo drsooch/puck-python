@@ -64,7 +64,10 @@ class GamesContext(BaseContext):
         elif btn.label == 'Select Date':
             self.app._date_picker(btn=btn, caller=self)
         elif isinstance(btn.data, BaseGame):
-            self.display = SingleGamePreviewDisplay(
+            #     self.display = SingleGamePreviewDisplay(
+            #         self.app, self, self._rows, btn.data
+            #     )
+            self.display = SingleGameLiveDisplay(
                 self.app, self, self._rows, btn.data
             )
         elif btn.label == 'Schedule':
@@ -412,8 +415,7 @@ class SingleGamePreviewDisplay(urwid.WidgetWrap, BaseDisplay):
         )
 
         # This display requires players to initialized.
-        self.game.away.init_players(data)
-        self.game.home.init_players(data)
+        self.game.init_players(data)
 
         # call to update
         self.game.update_data(data)
@@ -557,22 +559,20 @@ class SingleGamePreviewDisplay(urwid.WidgetWrap, BaseDisplay):
             ]
         )
 
-        main_widgets = [
-            MainDivider(),
-            title,
-            record,
-            MainDivider(),
-        ]
-
         # build each component
         splits = self._build_split()
         top_scorers = self._build_top_scorers()
         stats = self._build_team_stats()
 
-        # add the component widgets to the main list
-        main_widgets.extend(splits)
-        main_widgets.extend(top_scorers)
-        main_widgets.extend(stats)
+        main_widgets = [
+            MainDivider(),
+            title,
+            record,
+            MainDivider(),
+            *splits,
+            *top_scorers,
+            *stats
+        ]
 
         # wrap in a list walker to put into an IDLB
         lw = urwid.SimpleFocusListWalker(main_widgets)
@@ -686,12 +686,101 @@ class SingleGameLiveDisplay(urwid.WidgetWrap, BaseDisplay):
         )
 
         # This display requires players to initialized.
-        self.game.away.init_players(data)
-        self.game.home.init_players(data)
+        # if this display is swapped with SingleGamePreviewDisplay,
+        # the game object has it's player's initialized
+        self.game.init_players(data)
 
         # call to update
         self.game.update_data(data)
 
-        widget = Text('Hi')
+        widget = self.build_display()
 
         urwid.WidgetWrap.__init__(self, widget)
+
+# -------------------------- Top Level Methods --------------------------#
+    def update(self):
+        data = utils.request(
+            Url.GAME, {'game_id': self.game.game_id}
+        )
+
+        self.game.update_data(data)
+
+        # this is the internal attribute widget
+        self._w = self.build_display()
+
+# -------------------------- Builder Methods --------------------------#
+    def build_display(self) -> urwid.LineBox:
+        h_score, a_score = self._build_scores()
+
+        title = urwid.Columns(
+            [
+                Text(''),
+                BoldText(self.game.away.full_name.upper()),
+                *a_score,
+                gametime_text_widget(self.game),
+                *h_score,
+                BoldText(self.game.home.full_name.upper()),
+                Text('')
+            ]
+        )
+
+        # record = urwid.Columns(
+        #     [
+        #         Text(
+        #             '-'.join(
+        #                 map(str, [
+        #                     self.away_stats.wins.value,
+        #                     self.away_stats.losses.value,
+        #                     self.away_stats.ot_losses.value
+        #                 ])
+        #             )
+        #         ),
+        #         Text(''),
+        #         Text(
+        #             '-'.join(
+        #                 map(str, [
+        #                     self.home_stats.wins.value,
+        #                     self.home_stats.losses.value,
+        #                     self.home_stats.ot_losses.value
+        #                 ])
+        #             )
+        #         )
+        #     ]
+        # )
+
+        main_widgets = [
+            MainDivider(),
+            urwid.Divider(),
+            title,
+            urwid.Divider(),
+            # record,
+            MainDivider(),
+        ]
+
+        # wrap in a list walker to put into an IDLB
+        lw = urwid.SimpleFocusListWalker(main_widgets)
+        idlb = IndicativeListBox(lw)
+
+        box = urwid.BoxAdapter(idlb, self._rows)
+
+        return urwid.LineBox(box)
+
+    def _build_scores(self):
+        # widget lists
+        home = []
+        away = [Text(str(self.game.away.goals))]
+
+        # create an arrow to leading team
+        if self.game.away.goals > self.game.home.goals:
+            away.append(LEFT_ARROW)
+        else:
+            away.append(Text(' '))
+
+        if self.game.home.goals > self.game.away.goals:
+            home.append(RIGHT_ARROW)
+        else:
+            home.append(Text(' '))
+
+        home.append(Text(str(self.game.home.goals)))
+
+        return home, away

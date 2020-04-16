@@ -3,8 +3,6 @@ Miscellaneous debug functions.
 """
 
 
-def debug(file, *msgs):
-    with open(file, 'a') as f:
-        for msg in msgs:
-            f.write(msg)
-            f.write('\n')
+def debug(file, msg):
+    with open(file, 'w') as f:
+        f.write(str(msg))

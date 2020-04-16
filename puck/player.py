@@ -10,7 +10,30 @@ import puck.parser as parser
 
 
 class BasePlayer(object):
+    """Base Player Class.
+
+    Attributes:
+        db_conn (psycopg2.connection): Database Connection
+        player_id (int): Player ID
+        team_id (int): Current Team ID
+        first_name (str): player's first name
+        last_name (str): player's last_name
+        number (str): player's number
+        position (str): Player's position
+        handedness (str): Which hand the player shoots/catches with
+        rookie (bool): Is the player a rookie
+        age (int): player's age
+    """
+
     def __init__(self, db_conn, player_id, parsed_data=None):
+        """
+        Args:
+            db_conn (psycopg2.Connection): Database connection
+            player_id (int): Player ID
+            parsed_data (dict or defaultdict, optional):
+                dictionary of data retrieved from parser function.
+                Defaults to None.
+        """
         self.db_conn = db_conn
         self.player_id = player_id
 
@@ -37,7 +60,44 @@ class BasePlayer(object):
 
 
 class GamePlayer(BasePlayer):
+    """Player class for a single game
+
+    Inherits:
+        BasePlayer
+
+    Attributes:
+        time_on_ice (str)
+        assists (int)
+        goals (int)
+        pims (int)
+        shots (int)
+        hits (int)
+        pp_goals (int)
+        sh_goals (int)
+        ev_goals (int)
+        pp_assists (int)
+        sh_assists (int)
+        ev_assists (int)
+        faceoff_pct (float)
+        faceoff_wins (int)
+        faceoff_taken (int)
+        takeaways (int)
+        giveaways (int)
+        blocked (int)
+        plus_minus (int)
+        ev_toi (str)
+        pp_toi (str)
+        sh_toi (str)
+    """
+
     def __init__(self, db_conn, player_id, parsed_data):
+        """
+        Args:
+            db_conn (psycopg2.Connection): Database connection
+            player_id (int): Player ID
+            parsed_data (dict or defaultdict):
+                dictionary of data retrieved from parser function.
+        """
 
         super().__init__(db_conn, player_id=player_id, parsed_data=parsed_data)
 
@@ -56,7 +116,16 @@ class GamePlayer(BasePlayer):
 
 
 class FullPlayer(BasePlayer):
+    """Holds Career and Season Stats."""
+
     def __init__(self, db_conn, player_id, parsed_data=None):
+        """
+        Args:
+            db_conn (psycopg2.Connection): Database connection
+            player_id (int): Player ID
+            parsed_data (dict or defaultdict):
+                dictionary of data retrieved from parser function.
+        """
         super().__init__(db_conn, player_id=player_id, parsed_data=parsed_data)
 
     def update_data(self, data):
@@ -64,7 +133,34 @@ class FullPlayer(BasePlayer):
 
 
 class PlayerCollection(object):
+    """Object to hold a teams roster.
+
+    Attributes:
+        db_conn (psycopg2.Connection)
+        team (BaseTeam): Reference to the team object its associated with
+        need_to_update (list): list of ID's of players who are no longer
+                               on the team
+        _class (BasePlayer): PlayerClass to instantiate
+        players (list of BasePlayer): The actual holder of player objects
+        forwards (list of int): A list holding indexes of self.players to
+                                which are forwards
+        defense (list of int): see forwards
+        goalies (list of int): see forwards
+        not_playing (list of int): see forwards
+        player_ids (list of int): list of player ID's
+
+    NOTE: player_ids, need_to_update will be empty when the player class
+    is actually created.
+    """
+
     def __init__(self, team, id_list, _class=BasePlayer):
+        """
+        Args:
+            team (BaseTeam): Team Object
+            id_list (list of int): list of player ids
+            _class (BasePlayer, optional): Player class to instantiate.
+                Defaults to BasePlayer.
+        """
         self.db_conn = team.game.db_conn  # db_conn
         self.team = team    # team object associated with collection
         self.need_to_update = []  # list of players who need to be updated

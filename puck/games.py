@@ -17,6 +17,12 @@ class GameIDException(Exception):
 class BaseGame(object):
     """The BaseGame class. This should only be used a parent class
         for user defined game classes.
+
+    Attributes:
+        db_conn (psycopg2.Connection): Database Connection
+        game_id (int): Game ID
+        home (None): Not Implemented
+        away (None): Not Implemented
     """
 
     def __init__(self, db_conn, game_id):
@@ -44,10 +50,32 @@ class BannerGame(BaseGame):
 
     Data is collected from Url.GAME endpoint.
 
-    TODO: Write up documentation.
+    Inherits:
+        BaseGame
+
+    Attributes:
+        home (BaseTeam): Team object for the home team
+        away (BaseTeam): Team object for the away team
+        game_status (int): Status code for where the game is at
+        start_time (str): String formatted from an Arrow object
+        game_date (Arrow): An Arrow object holding the date
+        period (str): Indicates the current period
+        time (str): Indicates time left in the period
+        in_intermission (bool): Boolean indicating if game is in intermission
+        is_preview (bool): Boolean indicating if game is in preview
+        is_final (bool): Boolean indicating if game is final
+        is_live (bool): Boolean indicating if game is live
     """
 
     def __init__(self, db_conn, game_id, data=None, _class=BannerTeam):
+        """
+        Args:
+            db_conn (psycopg2.Connection): database connection
+            game_id (int): Game ID
+            data (dict, optional): JSON rep of the game. Defaults to None.
+            _class (BaseTeam, optional): Team object to create.
+                Defaults to BannerTeam.
+        """
         super().__init__(db_conn, game_id)
 
         if not data:
@@ -58,8 +86,8 @@ class BannerGame(BaseGame):
         for key, val in parsed_data.items():
             setattr(self, key, val)
 
-        self.home = GameStatsTeam(self, game_id, 'home', data)
-        self.away = GameStatsTeam(self, game_id, 'away', data)
+        self.home = _class(self, game_id, 'home', data)
+        self.away = _class(self, game_id, 'away', data)
 
     def update_data(self, data=None):
         """
@@ -103,9 +131,19 @@ class BannerGame(BaseGame):
 
 class FullGame(BannerGame):
     """
-    The Full Game class is designed to encapsulate MOST of a games stats.
-    BannerGame is for simple data display/collection. This class will hold all
-    stats such as shots, saves, powerplays, etc.
+    The Full Game is an exact copy of BannerGames with a few minor exceptions.
+    BannerGame defaults to BannerTeam as it's Team Implementation. This class
+    uses GameStatsTeam. This class also has an additional wrapper method to
+    instantiate the Players of each team.
+
+    Inherits:
+        BannerGame
+
+    Attributes:
+        Same as BannerGame.
+
+    NOTE: This class is mostly for clarifying to the puck interface
+    what kind of player data we can end up with.
 
     """
 
@@ -118,12 +156,21 @@ class FullGame(BannerGame):
     def update_data(self, data=None):
         super().update_data(data)
 
+    def init_players(self, data=None):
+        """Wrapper to init both home and away players"""
+
+        # if the internal team object is not GameStatsTeam we ignore the call
+        if isinstance(self.home, GameStatsTeam):
+            self.home.init_players(data)
+            self.away.init_players(data)
+
 
 def get_game_ids(url_mods=None, params=None):
     """
     Return a list of game ids based on specific url parameters.
 
     Args:
+        url_mods (dict, optional): Certain urls are required to be formatted
         params (dict, optional): Misc. url parameters that alter the query.
 
     Returns:
@@ -141,14 +188,3 @@ def get_game_ids(url_mods=None, params=None):
             ids.append(game['gamePk'])
 
     return ids
-
-
-# class GamesCollection(UserList):
-    # def __init__(self, _ids, game_type):
-    # super().__init__(initlist)
-#
-    # def update_data(self):
-    # asyncio.run(batch_request_update(self.data))
-#
-    # def create(self)
-    # asyncio.run(batch_request_create(self.game_ids, game_type))
